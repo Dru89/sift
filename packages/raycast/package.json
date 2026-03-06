@@ -1,0 +1,82 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "sift",
+  "title": "Sift - Obsidian Tasks",
+  "description": "Surface and manage tasks from your Obsidian vault",
+  "icon": "extension-icon.png",
+  "author": "dru89",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "summary",
+      "title": "Task Summary",
+      "subtitle": "Sift",
+      "description": "Quick overview of your Obsidian tasks",
+      "mode": "view"
+    },
+    {
+      "name": "list-tasks",
+      "title": "List Tasks",
+      "subtitle": "Sift",
+      "description": "Browse and search all open tasks",
+      "mode": "view"
+    },
+    {
+      "name": "add-task",
+      "title": "Add Task",
+      "subtitle": "Sift",
+      "description": "Add a new task to today's daily note",
+      "mode": "view"
+    },
+    {
+      "name": "next-tasks",
+      "title": "Up Next",
+      "subtitle": "Sift",
+      "description": "See your most important tasks right now",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "vaultPath",
+      "title": "Vault Path",
+      "description": "Absolute path to your Obsidian vault",
+      "type": "textfield",
+      "required": true,
+      "placeholder": "/Users/you/Documents/My Vault"
+    },
+    {
+      "name": "dailyNotesPath",
+      "title": "Daily Notes Folder",
+      "description": "Folder for daily notes, relative to vault root",
+      "type": "textfield",
+      "required": false,
+      "default": "Daily Notes"
+    },
+    {
+      "name": "excludeFolders",
+      "title": "Excluded Folders",
+      "description": "Comma-separated list of folders to skip when scanning",
+      "type": "textfield",
+      "required": false,
+      "default": "Templates,Attachments"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.93.0",
+    "@sift/core": "*"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix"
+  }
+}
