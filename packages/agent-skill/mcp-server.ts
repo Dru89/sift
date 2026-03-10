@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 /**
  * Resolve the sift CLI command. Checks in order:
@@ -16,16 +16,17 @@ import { execSync } from "child_process";
  * The install script sets SIFT_CLI_PATH, but if sift is on your PATH
  * it will just work without any env var.
  */
-function getSiftCommand(): string {
+function getSiftCommand(): { command: string; prefixArgs: string[] } {
   if (process.env.SIFT_CLI_PATH) {
-    return `node "${process.env.SIFT_CLI_PATH}"`;
+    return { command: "node", prefixArgs: [process.env.SIFT_CLI_PATH] };
   }
-  return "sift";
+  return { command: "sift", prefixArgs: [] };
 }
 
 function runSift(args: string[]): string {
+  const { command, prefixArgs } = getSiftCommand();
   try {
-    const result = execSync(`${getSiftCommand()} ${args.join(" ")}`, {
+    const result = execFileSync(command, [...prefixArgs, ...args], {
       encoding: "utf-8",
       env: {
         ...process.env,
@@ -228,7 +229,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case "sift_list": {
         const cliArgs = ["list", "--show-file"];
-        if (args?.search) cliArgs.push("--search", `"${args.search}"`);
+        if (args?.search) cliArgs.push("--search", args.search as string);
         if (args?.priority) cliArgs.push("--priority", args.priority as string);
         if (args?.dueBefore)
           cliArgs.push("--due-before", args.dueBefore as string);
@@ -256,7 +257,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_add": {
-        const cliArgs = ["add", `"${args?.description}"`];
+        const cliArgs = ["add", args?.description as string];
         if (args?.priority)
           cliArgs.push("--priority", args.priority as string);
         if (args?.due) cliArgs.push("--due", args.due as string);
@@ -266,7 +267,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.recurrence)
           cliArgs.push("--recurrence", args.recurrence as string);
         if (args?.project)
-          cliArgs.push("--project", `"${args.project}"`);
+          cliArgs.push("--project", args.project as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],
@@ -274,7 +275,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_find": {
-        const result = runSift(["find", `"${args?.search}"`, "--show-file"]);
+        const result = runSift(["find", args?.search as string, "--show-file"]);
         return {
           content: [{ type: "text", text: result }],
         };
@@ -285,7 +286,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.file && args?.line) {
           const result = runSift([
             "done",
-            "--file", `"${args.file}"`,
+            "--file", args.file as string,
             "--line", String(args.line),
           ]);
           return {
@@ -295,7 +296,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Search mode
         if (args?.search) {
-          const result = runSift(["done", `"${args.search}"`]);
+          const result = runSift(["done", args.search as string]);
           return {
             content: [{ type: "text", text: result }],
           };
@@ -320,7 +321,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_project_create": {
-        const result = runSift(["project", "create", `"${args?.name}"`]);
+        const result = runSift(["project", "create", args?.name as string]);
         return {
           content: [{ type: "text", text: result }],
         };

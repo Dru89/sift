@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 /**
  * Resolve the sift CLI command. Checks in order:
@@ -9,16 +9,17 @@ import { execSync } from "child_process";
  * The install script sets SIFT_CLI_PATH, but if sift is on your PATH
  * it will just work without any env var.
  */
-function getSiftCommand(): string {
+function getSiftCommand(): { command: string; prefixArgs: string[] } {
   if (process.env.SIFT_CLI_PATH) {
-    return `node "${process.env.SIFT_CLI_PATH}"`;
+    return { command: "node", prefixArgs: [process.env.SIFT_CLI_PATH] };
   }
-  return "sift";
+  return { command: "sift", prefixArgs: [] };
 }
 
 function runSift(args: string[]): string {
+  const { command, prefixArgs } = getSiftCommand();
   try {
-    const result = execSync(`${getSiftCommand()} ${args.join(" ")}`, {
+    const result = execFileSync(command, [...prefixArgs, ...args], {
       encoding: "utf-8",
       env: {
         ...process.env,
@@ -57,7 +58,7 @@ export const list = tool({
   },
   async execute(args) {
     const cliArgs = ["list", "--show-file"];
-    if (args.search) cliArgs.push("--search", `"${args.search}"`);
+    if (args.search) cliArgs.push("--search", args.search);
     if (args.priority) cliArgs.push("--priority", args.priority);
     if (args.dueBefore) cliArgs.push("--due-before", args.dueBefore);
     if (args.all) cliArgs.push("--all");
@@ -123,13 +124,13 @@ export const add = tool({
       ),
   },
   async execute(args) {
-    const cliArgs = ["add", `"${args.description}"`];
+    const cliArgs = ["add", args.description];
     if (args.priority) cliArgs.push("--priority", args.priority);
     if (args.due) cliArgs.push("--due", args.due);
     if (args.scheduled) cliArgs.push("--scheduled", args.scheduled);
     if (args.start) cliArgs.push("--start", args.start);
     if (args.recurrence) cliArgs.push("--recurrence", args.recurrence);
-    if (args.project) cliArgs.push("--project", `"${args.project}"`);
+    if (args.project) cliArgs.push("--project", args.project);
     return runSift(cliArgs);
   },
 });
@@ -143,7 +144,7 @@ export const find = tool({
       .describe("Text to search for in task descriptions"),
   },
   async execute(args) {
-    return runSift(["find", `"${args.search}"`, "--show-file"]);
+    return runSift(["find", args.search, "--show-file"]);
   },
 });
 
@@ -176,7 +177,7 @@ export const done = tool({
       return runSift([
         "done",
         "--file",
-        `"${args.file}"`,
+        args.file,
         "--line",
         String(args.line),
       ]);
@@ -184,7 +185,7 @@ export const done = tool({
 
     // Search mode
     if (args.search) {
-      return runSift(["done", `"${args.search}"`]);
+      return runSift(["done", args.search]);
     }
 
     return "Error: provide either 'search' or both 'file' and 'line'";
@@ -208,6 +209,6 @@ export const projectCreate = tool({
       .describe("The project name (becomes the filename)"),
   },
   async execute(args) {
-    return runSift(["project", "create", `"${args.name}"`]);
+    return runSift(["project", "create", args.name]);
   },
 });
