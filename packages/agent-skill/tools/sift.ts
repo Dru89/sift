@@ -91,11 +91,10 @@ export const summary = tool({
 });
 
 export const add = tool({
-  description: "Add a new task to today's daily note in Obsidian.",
+  description:
+    "Add a new task to today's daily note or to a specific project in Obsidian.",
   args: {
-    description: tool.schema
-      .string()
-      .describe("The task description"),
+    description: tool.schema.string().describe("The task description"),
     priority: tool.schema
       .enum(["highest", "high", "low", "lowest"])
       .optional()
@@ -116,6 +115,12 @@ export const add = tool({
       .string()
       .optional()
       .describe("Recurrence rule, e.g. 'every week', 'every month'"),
+    project: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Name of the project to add this task to. If omitted, the task goes to today's daily note.",
+      ),
   },
   async execute(args) {
     const cliArgs = ["add", `"${args.description}"`];
@@ -124,19 +129,85 @@ export const add = tool({
     if (args.scheduled) cliArgs.push("--scheduled", args.scheduled);
     if (args.start) cliArgs.push("--start", args.start);
     if (args.recurrence) cliArgs.push("--recurrence", args.recurrence);
+    if (args.project) cliArgs.push("--project", `"${args.project}"`);
     return runSift(cliArgs);
   },
 });
 
-export const done = tool({
+export const find = tool({
   description:
-    "Mark a task as complete by searching for it. If multiple tasks match, returns the list so you can be more specific.",
+    "Search for open tasks matching a query without modifying them. Returns matching tasks with file paths and line numbers. Use this before sift_done to preview which task will be completed.",
   args: {
     search: tool.schema
       .string()
       .describe("Text to search for in task descriptions"),
   },
   async execute(args) {
-    return runSift(["done", `"${args.search}"`]);
+    return runSift(["find", `"${args.search}"`, "--show-file"]);
+  },
+});
+
+export const done = tool({
+  description:
+    "Mark a task as complete. Supports two modes: (1) search mode — pass 'search' to find and complete by description, or (2) precise mode — pass 'file' and 'line' to complete an exact task. Prefer precise mode after using sift_find to identify the task.",
+  args: {
+    search: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Text to search for in task descriptions. Use this OR file+line, not both.",
+      ),
+    file: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "File path (relative to vault root) for precise completion. Must be used with 'line'.",
+      ),
+    line: tool.schema
+      .number()
+      .optional()
+      .describe(
+        "Line number (1-indexed) for precise completion. Must be used with 'file'.",
+      ),
+  },
+  async execute(args) {
+    // Precise mode: file + line
+    if (args.file && args.line) {
+      return runSift([
+        "done",
+        "--file",
+        `"${args.file}"`,
+        "--line",
+        String(args.line),
+      ]);
+    }
+
+    // Search mode
+    if (args.search) {
+      return runSift(["done", `"${args.search}"`]);
+    }
+
+    return "Error: provide either 'search' or both 'file' and 'line'";
+  },
+});
+
+export const projects = tool({
+  description:
+    "List all projects in the vault. Returns project names, statuses, and tags.",
+  args: {},
+  async execute() {
+    return runSift(["projects"]);
+  },
+});
+
+export const projectCreate = tool({
+  description: "Create a new project from the vault's project template.",
+  args: {
+    name: tool.schema
+      .string()
+      .describe("The project name (becomes the filename)"),
+  },
+  async execute(args) {
+    return runSift(["project", "create", `"${args.name}"`]);
   },
 });

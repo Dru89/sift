@@ -27,7 +27,7 @@ The agent integration files are in `packages/agent-skill/`:
 **MCP Server (for Claude Code & Claude Desktop):**
 - `packages/agent-skill/mcp-server.ts` -- MCP server providing sift tools
 - Installed via `./scripts/install-agent-claude.sh`
-- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_done`
+- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_find`, `sift_done`, `sift_projects`, `sift_project_create`
 
 **OpenCode Skill:**
 - `packages/agent-skill/SKILL.md` -- Skill definition
@@ -66,7 +66,16 @@ The config file looks like:
   "vaultPath": "/path/to/vault",
   "dailyNotesPath": "Daily Notes",
   "dailyNotesFormat": "YYYY-MM-DD",
-  "excludeFolders": ["Templates", "Attachments"]
+  "excludeFolders": ["Templates", "Attachments"],
+  "projectsPath": "Projects",
+  "projectTemplatePath": "Templates/Project.md"
+}
+```
+
+A per-repo `.siftrc.json` can also include a `project` field to associate the working directory with a vault project:
+```json
+{
+  "project": "MP3 Parser"
 }
 ```
 
@@ -77,6 +86,25 @@ The scanner (`packages/core/src/scanner.ts`) walks all `.md` files in the vault,
 ### Task writing
 
 New tasks are added under the `## Journal` heading in today's daily note. If the daily note doesn't exist, it's created from a template that matches the user's existing format (frontmatter, tasks query block, journal section, dataview query, navigation links).
+
+Tasks can also be added to project files using `addTask()` with the `project` option (or `sift add --project`). When targeting a project, the task is inserted under the `## Tasks` heading in the project file.
+
+### Projects
+
+Projects are markdown files in the configured `projectsPath` folder (default: `Projects/`) that have `type: project` in their YAML frontmatter. The core library provides:
+
+- `listProjects()` -- scans the projects folder and returns metadata for all project files
+- `findProject()` -- case-insensitive lookup by name
+- `createProject()` -- creates a new project file from the configured template (stripping Templater syntax)
+
+### Safe task completion
+
+Task completion uses a two-step flow to prevent accidentally marking the wrong task:
+
+1. `findTasks(config, search)` -- searches open tasks by description substring, returns matches with file paths and line numbers
+2. `completeTask(config, filePath, lineNumber)` -- marks a specific task as done by precise file+line location
+
+The CLI `sift done` command supports both modes: search-based (`sift done "search term"`) and precise (`sift done --file "path" --line N`). Agent tools follow the same pattern.
 
 ## Building
 
@@ -103,13 +131,14 @@ Pure library, no CLI or UI. Key exports:
 
 - **Parser**: `parseLine()`, `parseContent()`, `formatTask()`
 - **Scanner**: `scanTasks()`, `scanFile()`, `getNextTasks()`, `getOverdueTasks()`, `getDueToday()`, `sortByUrgency()`
-- **Writer**: `addTask()`, `addTaskToFile()`, `completeTask()`
+- **Writer**: `addTask()`, `addTaskToFile()`, `completeTask()`, `findTasks()`
+- **Projects**: `listProjects()`, `findProject()`, `createProject()`
 - **Config**: `resolveConfig()`, `writeConfig()`
-- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`
+- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`, `ProjectInfo`
 
 ### @sift/cli (`packages/cli/`)
 
-Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `summary`, `init`
+Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `find`, `projects`, `project create`, `summary`, `init`
 
 Uses commander.js for arg parsing and chalk for terminal output.
 

@@ -13,6 +13,9 @@ import {
   sortByUrgency,
   addTask,
   completeTask,
+  findTasks,
+  listProjects,
+  createProject,
   localToday,
   type Priority,
   type SiftConfig,
@@ -93,12 +96,13 @@ program
 // ─── sift add ────────────────────────────────────────────────
 program
   .command("add <description...>")
-  .description("Add a new task to today's daily note")
+  .description("Add a new task to today's daily note (or to a project)")
   .option("-p, --priority <level>", "Priority: highest, high, low, lowest")
   .option("-d, --due <date>", "Due date (YYYY-MM-DD)")
   .option("-s, --scheduled <date>", "Scheduled date (YYYY-MM-DD)")
   .option("--start <date>", "Start date (YYYY-MM-DD)")
   .option("-r, --recurrence <rule>", "Recurrence rule (e.g., 'every week')")
+  .option("--project <name>", "Add task to a project instead of daily note")
   .action(async (descriptionParts: string[], opts) => {
     const config = await resolveConfig();
     const description = descriptionParts.join(" ");
@@ -110,24 +114,75 @@ program
       scheduled: opts.scheduled,
       start: opts.start,
       recurrence: opts.recurrence,
+      project: opts.project,
     });
 
-    console.log(chalk.green("✓") + " Added task to today's daily note:");
+    const target = opts.project
+      ? `project "${opts.project}"`
+      : "today's daily note";
+    console.log(chalk.green("✓") + ` Added task to ${target}:`);
     console.log("  " + taskLine);
+  });
+
+// ─── sift find ───────────────────────────────────────────────
+program
+  .command("find <search...>")
+  .description("Search for open tasks without modifying them")
+  .option("--show-file", "Show file path for each task")
+  .action(async (searchParts: string[], opts) => {
+    const config = await resolveConfig();
+    const search = searchParts.join(" ");
+    const matches = await findTasks(config, search);
+
+    if (matches.length === 0) {
+      console.log(chalk.yellow("No open tasks matching: ") + search);
+      return;
+    }
+
+    console.log(
+      formatTaskList(
+        sortByUrgency(matches),
+        `Found ${matches.length} task${matches.length === 1 ? "" : "s"}`,
+        { showFile: opts.showFile ?? true },
+      ),
+    );
   });
 
 // ─── sift done ───────────────────────────────────────────────
 program
-  .command("done <search...>")
-  .description("Mark a task as complete (fuzzy matches by description)")
-  .action(async (searchParts: string[]) => {
+  .command("done [search...]")
+  .description("Mark a task as complete (by search or by file:line)")
+  .option("--file <path>", "File path (relative to vault root) for precise completion")
+  .option("--line <number>", "Line number for precise completion")
+  .action(async (searchParts: string[], opts) => {
     const config = await resolveConfig();
-    const search = searchParts.join(" ").toLowerCase();
 
-    const tasks = await scanTasks(config, { status: "open" });
-    const matches = tasks.filter((t) =>
-      t.description.toLowerCase().includes(search),
-    );
+    // Precise mode: --file and --line
+    if (opts.file && opts.line) {
+      const lineNum = parseInt(opts.line, 10);
+      if (isNaN(lineNum) || lineNum < 1) {
+        console.error(chalk.red("Invalid line number: ") + opts.line);
+        process.exit(1);
+      }
+
+      try {
+        const description = await completeTask(config, opts.file, lineNum);
+        console.log(chalk.green("✓") + " Completed: " + description);
+      } catch (err: any) {
+        console.error(chalk.red("Error: ") + err.message);
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Search mode: fuzzy match by description
+    if (!searchParts || searchParts.length === 0) {
+      console.error(chalk.red("Provide a search term, or use --file and --line for precise completion."));
+      process.exit(1);
+    }
+
+    const search = searchParts.join(" ");
+    const matches = await findTasks(config, search);
 
     if (matches.length === 0) {
       console.log(chalk.yellow("No open tasks matching: ") + search);
@@ -139,7 +194,7 @@ program
       for (const task of matches) {
         console.log("  " + formatTask(task, { showFile: true }));
       }
-      console.log(chalk.dim("\nBe more specific to match a single task."));
+      console.log(chalk.dim("\nBe more specific, or use --file and --line for precise completion."));
       return;
     }
 
@@ -148,12 +203,68 @@ program
     console.log(chalk.green("✓") + " Completed: " + task.description);
   });
 
+// ─── sift find ───────────────────────────────────────────────
+// (see above, before done)
+
+// ─── sift projects ───────────────────────────────────────────
+program
+  .command("projects")
+  .description("List projects in the vault")
+  .action(async () => {
+    const config = await resolveConfig();
+    const projects = await listProjects(config);
+
+    if (projects.length === 0) {
+      console.log(chalk.dim("No projects found in ") + config.projectsPath);
+      return;
+    }
+
+    console.log(chalk.bold("Projects"));
+    for (const project of projects) {
+      const parts: string[] = [chalk.white(project.name)];
+      if (project.status) {
+        parts.push(chalk.dim(`(${project.status})`));
+      }
+      if (project.timeframe) {
+        parts.push(chalk.dim(`[${project.timeframe}]`));
+      }
+      if (project.tags && project.tags.length > 0) {
+        parts.push(chalk.cyan(project.tags.map((t) => `#${t}`).join(" ")));
+      }
+      console.log("  " + parts.join("  "));
+    }
+  });
+
+// ─── sift project create ────────────────────────────────────
+const projectCmd = program
+  .command("project")
+  .description("Manage projects");
+
+projectCmd
+  .command("create <name...>")
+  .description("Create a new project from template")
+  .action(async (nameParts: string[]) => {
+    const config = await resolveConfig();
+    const name = nameParts.join(" ");
+
+    try {
+      const filePath = await createProject(config, name);
+      console.log(chalk.green("✓") + ` Created project "${name}"`);
+      console.log(chalk.dim("  File: ") + filePath);
+    } catch (err: any) {
+      console.error(chalk.red("Error: ") + err.message);
+      process.exit(1);
+    }
+  });
+
 // ─── sift init ───────────────────────────────────────────────
 program
   .command("init")
   .description("Set up sift configuration")
   .argument("<vault-path>", "Path to your Obsidian vault")
   .option("--daily-notes <path>", "Daily notes folder (relative to vault)", "Daily Notes")
+  .option("--projects <path>", "Projects folder (relative to vault)", "Projects")
+  .option("--project-template <path>", "Project template file (relative to vault)", "Templates/Project.md")
   .option("--exclude <folders...>", "Folders to exclude from scanning")
   .action(async (vaultPath: string, opts) => {
     const config: SiftConfig = {
@@ -161,12 +272,15 @@ program
       dailyNotesPath: opts.dailyNotes,
       dailyNotesFormat: "YYYY-MM-DD",
       excludeFolders: opts.exclude || ["Templates", "Attachments"],
+      projectsPath: opts.projects,
+      projectTemplatePath: opts.projectTemplate,
     };
 
     const configPath = await writeConfig(config);
     console.log(chalk.green("✓") + ` Configuration written to ${configPath}`);
     console.log(chalk.dim("  Vault: ") + config.vaultPath);
     console.log(chalk.dim("  Daily notes: ") + config.dailyNotesPath);
+    console.log(chalk.dim("  Projects: ") + config.projectsPath);
     console.log(chalk.dim("  Excluded: ") + config.excludeFolders.join(", "));
   });
 
@@ -206,6 +320,12 @@ program
 
     const next = sortByUrgency(openTasks).slice(0, 5);
     console.log(formatTaskList(next, "👉 Up Next"));
+
+    // Show CWD project context if configured
+    if (config.project) {
+      console.log();
+      console.log(chalk.dim(`📁 CWD project: ${config.project}`));
+    }
   });
 
 program.parse();

@@ -17,5 +17,7 @@ export function getConfig(): SiftConfig {
     excludeFolders: prefs.excludeFolders
       ? prefs.excludeFolders.split(",").map((s) => s.trim())
       : ["Templates", "Attachments"],
+    projectsPath: "Projects",
+    projectTemplatePath: "Templates/Project.md",
   };
 }

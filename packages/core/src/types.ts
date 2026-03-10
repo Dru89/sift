@@ -48,6 +48,9 @@ export interface Task {
   /** Completion date (✅ emoji) - when the task was marked done */
   done: string | null;
 
+  /** Created date (➕ emoji) - when the task was created */
+  created: string | null;
+
   /** Recurrence rule (🔁 emoji) - e.g., "every week" */
   recurrence: string | null;
 
@@ -76,6 +79,39 @@ export interface SiftConfig {
    * Relative to vault root. Defaults to ["Templates", "Attachments"].
    */
   excludeFolders: string[];
+
+  /** Path to the projects folder, relative to vault root. Defaults to "Projects". */
+  projectsPath: string;
+
+  /** Path to the project template file, relative to vault root. Defaults to "Templates/Project.md". */
+  projectTemplatePath: string;
+
+  /**
+   * The project associated with the current working directory.
+   * Set in a per-repo .siftrc.json to associate a repo with a vault project.
+   * When set, agents will default to adding tasks to this project.
+   */
+  project?: string;
+}
+
+/**
+ * Metadata about a project in the vault.
+ */
+export interface ProjectInfo {
+  /** The project name (derived from filename) */
+  name: string;
+
+  /** Path to the project file, relative to vault root */
+  filePath: string;
+
+  /** Frontmatter status field, if present */
+  status?: string;
+
+  /** Frontmatter timeframe field, if present */
+  timeframe?: string;
+
+  /** Frontmatter tags, if present */
+  tags?: string[];
 }
 
 /**

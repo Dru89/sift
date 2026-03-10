@@ -9,6 +9,7 @@ const EMOJI = {
   due: "📅",
   start: "🛫",
   done: "✅",
+  created: "➕",
   cancelled: "❌",
   recurrence: "🔁",
   highest: "⏫",
@@ -32,11 +33,12 @@ const PRIORITY_MAP: Array<[string, Priority]> = [
 /**
  * Date field emoji to field name mapping.
  */
-const DATE_FIELDS: Array<[string, keyof Pick<Task, "scheduled" | "due" | "start" | "done">]> = [
+const DATE_FIELDS: Array<[string, keyof Pick<Task, "scheduled" | "due" | "start" | "done" | "created">]> = [
   ["⏳", "scheduled"],
   ["📅", "due"],
   ["🛫", "start"],
   ["✅", "done"],
+  ["➕", "created"],
 ];
 
 /** Regex to match a date in YYYY-MM-DD format */
@@ -86,6 +88,7 @@ export function parseLine(
     due: dates.due,
     start: dates.start,
     done: dates.done,
+    created: dates.created,
     recurrence,
     filePath,
     line: lineNumber,
@@ -136,17 +139,20 @@ function parseDates(text: string): {
   due: string | null;
   start: string | null;
   done: string | null;
+  created: string | null;
 } {
   const result: {
     scheduled: string | null;
     due: string | null;
     start: string | null;
     done: string | null;
+    created: string | null;
   } = {
     scheduled: null,
     due: null,
     start: null,
     done: null,
+    created: null,
   };
 
   for (const [emoji, field] of DATE_FIELDS) {
@@ -168,7 +174,7 @@ function parseRecurrence(text: string): string | null {
   // Recurrence text runs until the next emoji or end of line
   const after = text.slice(idx + EMOJI.recurrence.length).trim();
   // Stop at the next emoji marker
-  const emojiPattern = /[⏫🔼🔽⏬⏳📅🛫✅❌🔁]/;
+  const emojiPattern = /[⏫🔼🔽⏬⏳📅🛫✅➕❌🔁]/;
   const endMatch = after.search(emojiPattern);
   return endMatch === -1 ? after.trim() : after.slice(0, endMatch).trim();
 }
@@ -199,7 +205,7 @@ function stripMetadata(text: string): string {
   if (recIdx !== -1) {
     // Find the next emoji or end of string
     const after = result.slice(recIdx + EMOJI.recurrence.length);
-    const emojiPattern = /[⏫🔼🔽⏬⏳📅🛫✅❌]/;
+    const emojiPattern = /[⏫🔼🔽⏬⏳📅🛫✅➕❌]/;
     const endMatch = after.search(emojiPattern);
     if (endMatch === -1) {
       result = result.slice(0, recIdx);
@@ -240,6 +246,10 @@ export function formatTask(task: Omit<Task, "raw" | "filePath" | "line">): strin
 
   if (task.done) {
     parts.push(`${EMOJI.done} ${task.done}`);
+  }
+
+  if (task.created) {
+    parts.push(`${EMOJI.created} ${task.created}`);
   }
 
   return parts.join(" ");

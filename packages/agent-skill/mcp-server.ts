@@ -95,7 +95,8 @@ const tools: Tool[] = [
   },
   {
     name: "sift_add",
-    description: "Add a new task to today's daily note in Obsidian.",
+    description:
+      "Add a new task to today's daily note or to a specific project in Obsidian.",
     inputSchema: {
       type: "object",
       properties: {
@@ -124,14 +125,19 @@ const tools: Tool[] = [
           type: "string",
           description: "Recurrence rule, e.g. 'every week', 'every month'",
         },
+        project: {
+          type: "string",
+          description:
+            "Name of the project to add this task to. If omitted, the task goes to today's daily note.",
+        },
       },
       required: ["description"],
     },
   },
   {
-    name: "sift_done",
+    name: "sift_find",
     description:
-      "Mark a task as complete by searching for it. If multiple tasks match, returns the list so you can be more specific.",
+      "Search for open tasks matching a query without modifying them. Returns matching tasks with file paths and line numbers. Use this before sift_done to preview which task will be completed.",
     inputSchema: {
       type: "object",
       properties: {
@@ -141,6 +147,55 @@ const tools: Tool[] = [
         },
       },
       required: ["search"],
+    },
+  },
+  {
+    name: "sift_done",
+    description:
+      "Mark a task as complete. Supports two modes: (1) search mode — pass 'search' to find and complete by description substring, or (2) precise mode — pass 'file' and 'line' to complete an exact task. Prefer precise mode after using sift_find to identify the task.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description:
+            "Text to search for in task descriptions. Use this OR file+line, not both.",
+        },
+        file: {
+          type: "string",
+          description:
+            "File path (relative to vault root) for precise completion. Must be used with 'line'.",
+        },
+        line: {
+          type: "number",
+          description:
+            "Line number (1-indexed) for precise completion. Must be used with 'file'.",
+        },
+      },
+    },
+  },
+  {
+    name: "sift_projects",
+    description:
+      "List all projects in the vault. Returns project names, statuses, and tags.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "sift_project_create",
+    description:
+      "Create a new project from the vault's project template.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "The project name (becomes the filename)",
+        },
+      },
+      required: ["name"],
     },
   },
 ];
@@ -210,14 +265,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.start) cliArgs.push("--start", args.start as string);
         if (args?.recurrence)
           cliArgs.push("--recurrence", args.recurrence as string);
+        if (args?.project)
+          cliArgs.push("--project", `"${args.project}"`);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
+      case "sift_find": {
+        const result = runSift(["find", `"${args?.search}"`, "--show-file"]);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
       case "sift_done": {
-        const result = runSift(["done", `"${args?.search}"`]);
+        // Precise mode: file + line
+        if (args?.file && args?.line) {
+          const result = runSift([
+            "done",
+            "--file", `"${args.file}"`,
+            "--line", String(args.line),
+          ]);
+          return {
+            content: [{ type: "text", text: result }],
+          };
+        }
+
+        // Search mode
+        if (args?.search) {
+          const result = runSift(["done", `"${args.search}"`]);
+          return {
+            content: [{ type: "text", text: result }],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: provide either 'search' or both 'file' and 'line'",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      case "sift_projects": {
+        const result = runSift(["projects"]);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "sift_project_create": {
+        const result = runSift(["project", "create", `"${args?.name}"`]);
         return {
           content: [{ type: "text", text: result }],
         };
