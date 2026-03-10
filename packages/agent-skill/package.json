@@ -1,0 +1,24 @@
+{
+  "name": "@sift/agent-skill",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Agent skill and MCP server for sift - task management integration for AI agents",
+  "bin": {
+    "sift-mcp": "dist/mcp-server.js"
+  },
+  "main": "dist/mcp-server.js",
+  "types": "dist/mcp-server.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

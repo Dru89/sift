@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace=packages/core && npm run build --workspace=packages/cli",
+    "build": "npm run build --workspace=packages/core && npm run build --workspace=packages/cli && npm run build --workspace=packages/agent-skill",
     "build:all": "npm run build && npm run build --workspace=packages/raycast --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },

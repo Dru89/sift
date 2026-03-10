@@ -16,7 +16,7 @@ Sift reads your Obsidian vault directly, parses tasks in the [emoji format](http
 
 - **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, and more
 - **Raycast extension** -- search tasks, view priorities, add tasks with a form
-- **AI agent integration** -- OpenCode skill + custom tools for conversational task management
+- **AI agent integration** -- Works with Claude Code, Claude Desktop, and OpenCode for conversational task management
 - **Shared core library** -- all interfaces use the same `@sift/core` package, so they always behave consistently
 
 ## Quick start
@@ -86,16 +86,37 @@ npx ray develop
 
 Raycast will prompt you to set your vault path in the extension preferences on first use. See [packages/raycast/README.md](packages/raycast/README.md) for details.
 
-### Set up the OpenCode agent skill
+### Set up AI agent integration
 
-If you use [OpenCode](https://opencode.ai), sift can be added as an agent skill so your AI assistant can read and manage tasks conversationally.
+Sift can be integrated with AI coding agents so your assistant can read and manage tasks conversationally. Choose the setup for your tool:
+
+#### For Claude Code / Claude Desktop
+
+If you use [Claude Code](https://claude.com/claude-code) (CLI) or Claude Desktop, sift runs as an MCP server.
+
+```bash
+# 1. Build the MCP server
+npm install
+npm run build
+
+# 2. Install MCP server configuration
+./scripts/install-agent-claude.sh
+```
+
+For Claude Desktop, this will show you the configuration to add. For Claude Code, follow the printed instructions.
+
+#### For OpenCode
+
+If you use [OpenCode](https://opencode.ai), sift can be added as an agent skill.
 
 ```bash
 # Install the skill and custom tools to ~/.config/opencode/
 ./scripts/install-agent.sh
 ```
 
-Then restart OpenCode. You can now say things like "what should I work on?" or "add a task to review the PR by Friday". See [docs/agent-integration.md](docs/agent-integration.md) for the full setup guide.
+Then restart OpenCode.
+
+See [docs/agent-integration.md](docs/agent-integration.md) for the full setup guide for all platforms.
 
 ## Packages
 
@@ -104,7 +125,7 @@ Then restart OpenCode. You can now say things like "what should I work on?" or "
 | [`@sift/core`](packages/core/) | Shared library: parser, scanner, writer, config | [README](packages/core/README.md) |
 | [`@sift/cli`](packages/cli/) | Command-line interface | [README](packages/cli/README.md) |
 | [Raycast extension](packages/raycast/) | Raycast commands for task management | [README](packages/raycast/README.md) |
-| [Agent skill](packages/agent-skill/) | OpenCode skill + custom tools | [Setup guide](docs/agent-integration.md) |
+| [Agent skill](packages/agent-skill/) | MCP server for Claude Code/Desktop + OpenCode skill | [Setup guide](docs/agent-integration.md) |
 
 ## How it works
 
