@@ -19,6 +19,8 @@ The following custom tools are available for interacting with the user's tasks:
 - **`sift_done`** - Mark a task as complete (by search or by precise file+line)
 - **`sift_projects`** - List all projects in the vault
 - **`sift_projectCreate`** - Create a new project from template
+- **`sift_projectPath`** - Get the vault-relative file path for a project (for reading/editing)
+- **`sift_addNote`** - Add a freeform note to a daily note or project file
 
 ## Task format
 
@@ -94,6 +96,32 @@ Example flow:
 ## Creating projects
 
 When the user wants to create a new project, use `sift_projectCreate` with the project name. This creates a new file from the vault's project template in the Projects folder.
+
+## Adding notes to projects and daily notes
+
+Use `sift_addNote` to add freeform content (not tasks) to a project or daily note. This is useful for:
+- Recording decisions, observations, or meeting notes
+- Updating a project's notes or overview section
+- Logging journal entries in the daily note
+- Adding research findings or context to a project
+
+**Default headings:**
+- For daily notes: notes go under `## Journal`
+- For projects: notes go under `## Notes`
+- Use the `heading` parameter to target a different section (e.g., `"## Overview"`, `"## Goals"`)
+
+**When to use `sift_addNote` vs editing directly:**
+- Use `sift_addNote` for quick additions: a paragraph, a few bullet points, a brief update
+- For larger edits (rewriting a section, restructuring content), use `sift_projectPath` to get the file path, then read and edit the file directly
+
+## Reading and editing project files
+
+Use `sift_projectPath` to get the vault-relative file path for any project. This lets you:
+- Read the project file to understand its current state
+- Make direct edits to any section of the project
+- Check what tasks, notes, or goals already exist
+
+The returned path is relative to the vault root. To get the absolute path for file operations, prepend the vault path from the sift configuration.
 
 ## Date handling for new tasks
 

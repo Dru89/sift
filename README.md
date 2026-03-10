@@ -14,7 +14,7 @@ Sift reads your Obsidian vault directly, parses tasks in the [emoji format](http
 
 ## Features
 
-- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, and more
+- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, `sift note`, and more
 - **Raycast extension** -- search tasks, view priorities, add tasks with a form
 - **AI agent integration** -- Works with Claude Code, Claude Desktop, and OpenCode for conversational task management
 - **Shared core library** -- all interfaces use the same `@sift/core` package, so they always behave consistently
@@ -60,8 +60,17 @@ sift list
 # Add a task
 sift add "Review the architecture doc" --priority high --due 2026-03-10
 
+# Add a task to a project
+sift add "Design the API" --project "MP3 Parser" --priority high
+
 # Mark something done
 sift done "architecture doc"
+
+# Add a note to today's daily note
+sift note "Had a great meeting about the roadmap"
+
+# Add a note to a project
+sift note --project "MP3 Parser" "Decided to use ID3v2.4 format"
 ```
 
 To make `sift` available globally:
@@ -149,6 +158,7 @@ Sift understands the Obsidian Tasks emoji format:
 | `📅` | Due date | `📅 2026-03-10` |
 | `🛫` | Start date | `🛫 2026-03-01` |
 | `✅` | Done date | `✅ 2026-03-06` |
+| `➕` | Created date | `➕ 2026-03-01` |
 | `🔁` | Recurrence | `🔁 every week` |
 
 ### Configuration
@@ -167,13 +177,25 @@ Config file format:
   "vaultPath": "/Users/you/Documents/My Vault",
   "dailyNotesPath": "Daily Notes",
   "dailyNotesFormat": "YYYY-MM-DD",
-  "excludeFolders": ["Templates", "Attachments"]
+  "excludeFolders": ["Templates", "Attachments"],
+  "projectsPath": "Projects",
+  "projectTemplatePath": "Templates/Project.md"
 }
 ```
 
 ### Where tasks are added
 
-New tasks are added to today's daily note under the `## Journal` heading. If the daily note doesn't exist yet, sift creates it using a template that matches the standard Obsidian daily note format (frontmatter, tasks query, journal section, dataview query, navigation links).
+New tasks are added to today's daily note under the `## Journal` heading by default. If the daily note doesn't exist yet, sift creates it using a template that matches the standard Obsidian daily note format (frontmatter, tasks query, journal section, dataview query, navigation links).
+
+Tasks can also be added to project files using `sift add --project <name>`, which inserts them under the `## Tasks` heading. Tasks added to project files automatically include a `➕ YYYY-MM-DD` created date.
+
+### Notes
+
+Freeform notes (not tasks) can be added with `sift note`. By default, notes go under `## Journal` in today's daily note. Use `--project` to target a project file (defaults to `## Notes` heading), and `--heading` to target a custom section.
+
+### Projects
+
+Projects are markdown files in the configured `projectsPath` folder (default: `Projects/`) with `type: project` in their YAML frontmatter. Use `sift projects` to list them, `sift project create` to create new ones from a template, and `sift project path` to get the file path for a project.
 
 ## Project structure
 
@@ -184,7 +206,8 @@ sift/
 │   │   └── src/
 │   │       ├── parser.ts    # Parse/format Obsidian Tasks emoji syntax
 │   │       ├── scanner.ts   # Find and filter tasks across the vault
-│   │       ├── writer.ts    # Add and complete tasks in markdown files
+│   │       ├── writer.ts    # Add tasks/notes and complete tasks
+│   │       ├── projects.ts  # List, find, and create projects
 │   │       ├── config.ts    # Configuration resolution
 │   │       ├── dates.ts     # Local timezone date helpers
 │   │       ├── types.ts     # TypeScript interfaces
@@ -200,12 +223,15 @@ sift/
 │   │       ├── next-tasks.tsx   # Priority-sorted view
 │   │       ├── add-task.tsx     # Add task form
 │   │       └── config.ts       # Raycast preferences adapter
-│   └── agent-skill/    # OpenCode agent integration
-│       ├── SKILL.md         # Skill definition (what the agent knows)
+│   └── agent-skill/    # AI agent integrations
+│       ├── src/
+│       │   └── mcp-server.ts  # MCP server for Claude Code/Desktop
+│       ├── SKILL.md         # OpenCode skill definition
 │       └── tools/
-│           └── sift.ts      # Custom tools (what the agent can do)
+│           └── sift.ts      # OpenCode custom tools
 ├── scripts/
-│   └── install-agent.sh     # Install skill + tools to ~/.config/opencode/
+│   ├── install-agent.sh         # Install OpenCode skill + tools
+│   └── install-agent-claude.sh  # Install Claude MCP server config
 ├── docs/
 │   └── agent-integration.md
 ├── AGENTS.md

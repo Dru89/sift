@@ -12,9 +12,11 @@ import {
   getDueToday,
   sortByUrgency,
   addTask,
+  addNote,
   completeTask,
   findTasks,
   listProjects,
+  findProject,
   createProject,
   localToday,
   type Priority,
@@ -206,6 +208,34 @@ program
 // ─── sift find ───────────────────────────────────────────────
 // (see above, before done)
 
+// ─── sift note ───────────────────────────────────────────────
+program
+  .command("note <content...>")
+  .description("Add a note to today's daily note or to a project")
+  .option("--project <name>", "Add note to a project instead of daily note")
+  .option("--heading <heading>", "Target heading (default: '## Journal' for daily, '## Notes' for projects)")
+  .action(async (contentParts: string[], opts) => {
+    const config = await resolveConfig();
+    const content = contentParts.join(" ");
+
+    try {
+      await addNote(config, {
+        content,
+        project: opts.project,
+        heading: opts.heading,
+      });
+
+      const target = opts.project
+        ? `project "${opts.project}"`
+        : "today's daily note";
+      const heading = opts.heading || (opts.project ? "## Notes" : "## Journal");
+      console.log(chalk.green("✓") + ` Added note to ${target} under ${heading}`);
+    } catch (err: any) {
+      console.error(chalk.red("Error: ") + err.message);
+      process.exit(1);
+    }
+  });
+
 // ─── sift projects ───────────────────────────────────────────
 program
   .command("projects")
@@ -254,6 +284,27 @@ projectCmd
     } catch (err: any) {
       console.error(chalk.red("Error: ") + err.message);
       process.exit(1);
+    }
+  });
+
+projectCmd
+  .command("path <name...>")
+  .description("Get the vault-relative file path for a project")
+  .option("--absolute", "Return the absolute path instead of vault-relative")
+  .action(async (nameParts: string[], opts) => {
+    const config = await resolveConfig();
+    const name = nameParts.join(" ");
+    const project = await findProject(config, name);
+
+    if (!project) {
+      console.error(chalk.red(`Project "${name}" not found.`));
+      process.exit(1);
+    }
+
+    if (opts.absolute) {
+      console.log(path.join(config.vaultPath, project.filePath));
+    } else {
+      console.log(project.filePath);
     }
   });
 

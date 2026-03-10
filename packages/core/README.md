@@ -193,13 +193,16 @@ Apply a `TaskFilter` to an array of tasks. Useful if you've already loaded tasks
 
 #### `addTask(config, options): Promise<string>`
 
-Add a new task to today's daily note under the `## Journal` heading. Creates the daily note from a template if it doesn't exist. Returns the formatted task string.
+Add a new task to today's daily note under the `## Journal` heading, or to a project file under `## Tasks` if `options.project` is provided. Creates the daily note from a template if it doesn't exist. Returns the formatted task string.
+
+When targeting a project, the task automatically includes a `➕ YYYY-MM-DD` created date.
 
 ```typescript
 import { resolveConfig, addTask } from "@sift/core";
 
 const config = await resolveConfig();
 
+// Add to today's daily note
 const taskLine = await addTask(config, {
   description: "Review the architecture doc",
   priority: "high",
@@ -207,6 +210,14 @@ const taskLine = await addTask(config, {
   scheduled: "2026-03-07",
 });
 // "- [ ] Review the architecture doc 🔼 ⏳ 2026-03-07 📅 2026-03-10"
+
+// Add to a project
+await addTask(config, {
+  description: "Design the API",
+  priority: "highest",
+  project: "MP3 Parser",
+});
+// "- [ ] Design the API ⏫ ➕ 2026-03-10"
 ```
 
 #### `addTaskToFile(config, filePath, options, heading?): Promise<string>`
@@ -222,17 +233,89 @@ await addTaskToFile(config, "Projects/Website.md", {
 }, "## Goals");
 ```
 
-#### `completeTask(config, task): Promise<void>`
+#### `completeTask(config, taskOrFile, line?): Promise<string>`
 
-Mark a task as done by updating the checkbox to `[x]` and appending a `✅ YYYY-MM-DD` done date.
+Mark a task as done by updating the checkbox to `[x]` and appending a `✅ YYYY-MM-DD` done date. Accepts either a `Task` object or an explicit file path and line number. Returns the description of the completed task.
 
 ```typescript
 import { scanTasks, completeTask } from "@sift/core";
 
+// Using a Task object
 const tasks = await scanTasks(config, { status: "open", search: "proposal" });
 if (tasks.length === 1) {
   await completeTask(config, tasks[0]);
 }
+
+// Using file path + line number (precise mode)
+await completeTask(config, "Daily Notes/2026-03-10.md", 13);
+```
+
+#### `findTasks(config, search): Promise<Task[]>`
+
+Search for open tasks matching a query string (case-insensitive substring match). Returns matching tasks with full context (file path, line number, description) without modifying anything. Use this to preview before completing.
+
+```typescript
+import { findTasks } from "@sift/core";
+
+const matches = await findTasks(config, "architecture");
+// Returns open tasks whose description contains "architecture"
+```
+
+#### `addNote(config, options): Promise<string>`
+
+Add a freeform note to today's daily note or to a project file. Returns the content that was written.
+
+When targeting a project, the note goes under `## Notes` by default. When targeting a daily note, it goes under `## Journal` by default. Use `options.heading` to specify a different section.
+
+```typescript
+import { addNote } from "@sift/core";
+
+// Add to today's daily note
+await addNote(config, {
+  content: "Had a great meeting about the roadmap",
+});
+
+// Add to a project under a custom heading
+await addNote(config, {
+  content: "Decided to use ID3v2.4 format",
+  project: "MP3 Parser",
+  heading: "## Log",
+});
+```
+
+### Projects
+
+#### `listProjects(config): Promise<ProjectInfo[]>`
+
+List all projects in the vault. Projects are markdown files in the configured `projectsPath` folder that have `type: project` in their YAML frontmatter.
+
+```typescript
+import { listProjects } from "@sift/core";
+
+const projects = await listProjects(config);
+// [{ name: "MP3 Parser", filePath: "Projects/MP3 Parser.md", status: "planning", tags: ["vibecode"] }, ...]
+```
+
+#### `findProject(config, name): Promise<ProjectInfo | undefined>`
+
+Look up a project by name (case-insensitive).
+
+```typescript
+import { findProject } from "@sift/core";
+
+const project = await findProject(config, "mp3 parser");
+// { name: "MP3 Parser", filePath: "Projects/MP3 Parser.md", ... }
+```
+
+#### `createProject(config, name): Promise<string>`
+
+Create a new project from the configured template. Returns the vault-relative file path.
+
+```typescript
+import { createProject } from "@sift/core";
+
+const filePath = await createProject(config, "New Feature");
+// "Projects/New Feature.md"
 ```
 
 ## Types
@@ -249,6 +332,7 @@ interface Task {
   due: string | null;       // YYYY-MM-DD or null
   start: string | null;     // YYYY-MM-DD or null
   done: string | null;      // YYYY-MM-DD or null
+  created: string | null;   // YYYY-MM-DD or null (➕ emoji)
   recurrence: string | null;// e.g. "every week"
   filePath: string;         // Relative to vault root
   line: number;             // 1-indexed line number
@@ -259,10 +343,13 @@ interface Task {
 
 ```typescript
 interface SiftConfig {
-  vaultPath: string;        // Absolute path to vault root
-  dailyNotesPath: string;   // Folder for daily notes, relative to vault root
-  dailyNotesFormat: string; // Date format for filenames (default: "YYYY-MM-DD")
-  excludeFolders: string[]; // Folders to skip when scanning
+  vaultPath: string;            // Absolute path to vault root
+  dailyNotesPath: string;       // Folder for daily notes, relative to vault root
+  dailyNotesFormat: string;     // Date format for filenames (default: "YYYY-MM-DD")
+  excludeFolders: string[];     // Folders to skip when scanning
+  projectsPath: string;         // Folder for projects (default: "Projects")
+  projectTemplatePath: string;  // Template file for new projects (default: "Templates/Project.md")
+  project?: string;             // CWD project association (from per-repo .siftrc.json)
 }
 ```
 
@@ -289,6 +376,29 @@ interface NewTaskOptions {
   scheduled?: string;       // YYYY-MM-DD
   start?: string;           // YYYY-MM-DD
   recurrence?: string;      // e.g. "every week"
+  project?: string;         // Target project name (adds to project file instead of daily note)
+}
+```
+
+### `AddNoteOptions`
+
+```typescript
+interface AddNoteOptions {
+  content: string;          // The note content (can be multi-line)
+  project?: string;         // Target project name (adds to project file instead of daily note)
+  heading?: string;         // Target heading (default: "## Journal" for daily, "## Notes" for projects)
+}
+```
+
+### `ProjectInfo`
+
+```typescript
+interface ProjectInfo {
+  name: string;             // Project name (from filename)
+  filePath: string;         // Vault-relative path to project file
+  status?: string;          // Frontmatter status field
+  timeframe?: string;       // Frontmatter timeframe field
+  tags?: string[];          // Frontmatter tags
 }
 ```
 

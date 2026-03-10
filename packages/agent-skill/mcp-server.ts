@@ -199,6 +199,46 @@ const tools: Tool[] = [
       required: ["name"],
     },
   },
+  {
+    name: "sift_project_path",
+    description:
+      "Get the vault-relative file path for a project. Useful when you need to read or edit a project file directly.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "The project name to look up",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "sift_note",
+    description:
+      "Add a freeform note to today's daily note or to a project. Use this for non-task content like observations, decisions, meeting notes, or project updates.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description: "The note content (can be multi-line)",
+        },
+        project: {
+          type: "string",
+          description:
+            "Name of the project to add the note to. If omitted, the note goes to today's daily note.",
+        },
+        heading: {
+          type: "string",
+          description:
+            "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
+        },
+      },
+      required: ["content"],
+    },
+  },
 ];
 
 // Create server instance
@@ -322,6 +362,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "sift_project_create": {
         const result = runSift(["project", "create", args?.name as string]);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "sift_project_path": {
+        const result = runSift(["project", "path", args?.name as string]);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "sift_note": {
+        const cliArgs = ["note", args?.content as string];
+        if (args?.project)
+          cliArgs.push("--project", args.project as string);
+        if (args?.heading)
+          cliArgs.push("--heading", args.heading as string);
+        const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],
         };

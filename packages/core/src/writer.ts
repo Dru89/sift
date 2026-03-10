@@ -25,6 +25,26 @@ export interface NewTaskOptions {
 }
 
 /**
+ * Options for adding a note.
+ */
+export interface AddNoteOptions {
+  /** The note content (can be multi-line) */
+  content: string;
+
+  /**
+   * Name of the project to add this note to. If provided, the note is added
+   * to the project file. If omitted, the note goes to today's daily note.
+   */
+  project?: string;
+
+  /**
+   * The heading to insert the note under.
+   * Defaults to "## Notes" for projects, "## Journal" for daily notes.
+   */
+  heading?: string;
+}
+
+/**
  * Add a new task to today's daily note, or to a project file if specified.
  *
  * When `options.project` is provided, the task is added under the "## Tasks"
@@ -89,7 +109,7 @@ export async function addTaskToFile(
   let content = await fs.readFile(fullPath, "utf-8");
 
   if (heading) {
-    content = insertTaskUnderHeading(content, taskLine, heading);
+    content = insertContentUnderHeading(content, taskLine, heading);
   } else {
     // Append to end
     content = content.trimEnd() + "\n" + taskLine + "\n";
@@ -97,6 +117,28 @@ export async function addTaskToFile(
 
   await fs.writeFile(fullPath, content, "utf-8");
   return taskLine;
+}
+
+/**
+ * Add a freeform note to today's daily note or to a project file.
+ *
+ * When `options.project` is provided, the note is inserted under
+ * `options.heading` (default "## Notes") in the matching project file.
+ * Otherwise it goes under `options.heading` (default "## Journal")
+ * in today's daily note.
+ *
+ * @param config - The sift configuration
+ * @param options - The note options
+ * @returns The content that was written
+ */
+export async function addNote(
+  config: SiftConfig,
+  options: AddNoteOptions,
+): Promise<string> {
+  if (options.project) {
+    return addNoteToProject(config, options);
+  }
+  return addNoteToDailyNote(config, options);
 }
 
 /**
@@ -211,7 +253,7 @@ async function addTaskToDailyNote(
   }
 
   // Insert the task under the "## Journal" section
-  const updatedContent = insertTaskUnderJournal(content, taskLine);
+  const updatedContent = insertContentUnderHeading(content, taskLine, "## Journal");
   await fs.writeFile(fullPath, updatedContent, "utf-8");
 
   return taskLine;
@@ -237,10 +279,61 @@ async function addTaskToProject(
   let content = await fs.readFile(fullPath, "utf-8");
 
   // Try to insert under ## Tasks, fall back to appending
-  content = insertTaskUnderHeading(content, taskLine, "## Tasks");
+  content = insertContentUnderHeading(content, taskLine, "## Tasks");
   await fs.writeFile(fullPath, content, "utf-8");
 
   return taskLine;
+}
+
+/**
+ * Add a note to today's daily note under a heading (default "## Journal").
+ */
+async function addNoteToDailyNote(
+  config: SiftConfig,
+  options: AddNoteOptions,
+): Promise<string> {
+  const today = localToday();
+  const dailyNotePath = getDailyNotePath(config, today);
+  const fullPath = path.join(config.vaultPath, dailyNotePath);
+
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+
+  let content: string;
+  try {
+    content = await fs.readFile(fullPath, "utf-8");
+  } catch {
+    content = createDailyNoteTemplate(today);
+  }
+
+  const heading = options.heading || "## Journal";
+  content = insertContentUnderHeading(content, options.content, heading);
+  await fs.writeFile(fullPath, content, "utf-8");
+
+  return options.content;
+}
+
+/**
+ * Add a note to a project file under a heading (default "## Notes").
+ */
+async function addNoteToProject(
+  config: SiftConfig,
+  options: AddNoteOptions,
+): Promise<string> {
+  const project = await findProject(config, options.project!);
+  if (!project) {
+    throw new Error(
+      `Project "${options.project}" not found. Use "sift projects" to see available projects.`,
+    );
+  }
+
+  const fullPath = path.join(config.vaultPath, project.filePath);
+  let content = await fs.readFile(fullPath, "utf-8");
+
+  const heading = options.heading || "## Notes";
+  content = insertContentUnderHeading(content, options.content, heading);
+  await fs.writeFile(fullPath, content, "utf-8");
+
+  return options.content;
 }
 
 /**
@@ -290,23 +383,21 @@ SORT file.ctime DESC
 }
 
 /**
- * Insert a task line under the "## Journal" heading.
- * If there are already tasks there, append after the last one.
- * If the section is empty, add the task right after the heading.
+ * Insert content under a specific heading in a markdown document.
+ *
+ * The content is inserted after the last non-empty line in the section
+ * (before the next heading or end of file). If the heading doesn't exist,
+ * it is appended to the end of the file.
+ *
+ * Supports multi-line content: each line is inserted as a separate line
+ * in the file.
  */
-function insertTaskUnderJournal(content: string, taskLine: string): string {
-  return insertTaskUnderHeading(content, taskLine, "## Journal");
-}
-
-/**
- * Insert a task line under a specific heading.
- */
-function insertTaskUnderHeading(
-  content: string,
-  taskLine: string,
+function insertContentUnderHeading(
+  fileContent: string,
+  newContent: string,
   heading: string,
 ): string {
-  const lines = content.split("\n");
+  const lines = fileContent.split("\n");
   let headingIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
@@ -318,10 +409,10 @@ function insertTaskUnderHeading(
 
   if (headingIdx === -1) {
     // Heading not found, append to end
-    return content.trimEnd() + "\n\n" + heading + "\n" + taskLine + "\n";
+    return fileContent.trimEnd() + "\n\n" + heading + "\n" + newContent + "\n";
   }
 
-  // Find the last task line (or any content) in this section,
+  // Find the last non-empty line in this section,
   // before the next heading or end of content
   let lastContentIdx = headingIdx;
 
@@ -337,13 +428,16 @@ function insertTaskUnderHeading(
     }
   }
 
+  // Split new content into lines for multi-line support
+  const contentLines = newContent.split("\n");
+
   // Insert after the last content line in the section
   if (lastContentIdx === headingIdx) {
     // Section was empty, insert right after heading
-    lines.splice(headingIdx + 1, 0, taskLine);
+    lines.splice(headingIdx + 1, 0, ...contentLines);
   } else {
-    // Insert after the last task/content line
-    lines.splice(lastContentIdx + 1, 0, taskLine);
+    // Insert after the last content line
+    lines.splice(lastContentIdx + 1, 0, ...contentLines);
   }
 
   return lines.join("\n");

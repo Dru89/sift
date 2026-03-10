@@ -212,3 +212,44 @@ export const projectCreate = tool({
     return runSift(["project", "create", args.name]);
   },
 });
+
+export const projectPath = tool({
+  description:
+    "Get the vault-relative file path for a project. Useful when you need to read or edit a project file directly.",
+  args: {
+    name: tool.schema
+      .string()
+      .describe("The project name to look up"),
+  },
+  async execute(args) {
+    return runSift(["project", "path", args.name]);
+  },
+});
+
+export const addNote = tool({
+  description:
+    "Add a freeform note to today's daily note or to a project. Use this for non-task content like observations, decisions, meeting notes, or project updates.",
+  args: {
+    content: tool.schema
+      .string()
+      .describe("The note content (can be multi-line)"),
+    project: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Name of the project to add the note to. If omitted, the note goes to today's daily note.",
+      ),
+    heading: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
+      ),
+  },
+  async execute(args) {
+    const cliArgs = ["note", args.content];
+    if (args.project) cliArgs.push("--project", args.project);
+    if (args.heading) cliArgs.push("--heading", args.heading);
+    return runSift(cliArgs);
+  },
+});

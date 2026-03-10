@@ -85,7 +85,7 @@ Show overdue tasks (due date is before today).
 
 ### `sift add`
 
-Add a new task to today's daily note.
+Add a new task to today's daily note, or to a project.
 
 ```bash
 sift add "Write the quarterly report"
@@ -93,6 +93,7 @@ sift add "Review PR" --priority high
 sift add "Submit expenses" --due 2026-03-15
 sift add "Prepare presentation" --priority highest --scheduled 2026-03-08 --due 2026-03-10
 sift add "Team standup" --recurrence "every weekday"
+sift add "Design the API" --project "My Project"
 ```
 
 Options:
@@ -104,14 +105,78 @@ Options:
 | `-s, --scheduled <date>` | Scheduled date (`YYYY-MM-DD`) |
 | `--start <date>` | Start date (`YYYY-MM-DD`) |
 | `-r, --recurrence <rule>` | Recurrence rule (e.g., `"every week"`) |
+| `--project <name>` | Add to a project instead of the daily note |
+
+When `--project` is used, the task is inserted under `## Tasks` in the project file and automatically includes a `➕` created date.
 
 ### `sift done`
 
-Mark a task as complete by searching for it. If the search matches exactly one open task, it's marked done. If it matches multiple, they're listed so you can be more specific.
+Mark a task as complete. Supports two modes:
+
+**Search mode** -- find and complete by description:
 
 ```bash
 sift done "quarterly report"
 sift done "PR"
+```
+
+If the search matches exactly one open task, it's marked done. If it matches multiple, they're listed so you can be more specific.
+
+**Precise mode** -- complete by exact file and line:
+
+```bash
+sift done --file "Daily Notes/2026-03-10.md" --line 13
+```
+
+### `sift find`
+
+Search for open tasks without modifying them. Useful for previewing before completing.
+
+```bash
+sift find "quarterly"
+sift find "architecture"
+```
+
+Shows matching tasks with file paths and line numbers by default.
+
+### `sift note`
+
+Add a freeform note (not a task) to today's daily note or to a project.
+
+```bash
+sift note "Had a great meeting about the roadmap"
+sift note --project "My Project" "Decided to use the new API design"
+sift note --project "My Project" --heading "## Log" "Shipped v1.0"
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project <name>` | Add note to a project instead of the daily note |
+| `--heading <heading>` | Target heading (default: `## Journal` for daily, `## Notes` for projects) |
+
+### `sift projects`
+
+List all projects in the vault.
+
+```bash
+sift projects
+```
+
+### `sift project create`
+
+Create a new project from the configured template.
+
+```bash
+sift project create "My New Project"
+```
+
+### `sift project path`
+
+Get the vault-relative file path for a project. Useful for scripting or agent integrations.
+
+```bash
+sift project path "My Project"              # vault-relative path
+sift project path --absolute "My Project"   # absolute path
 ```
 
 ### `sift init`
@@ -121,6 +186,7 @@ Set up the sift configuration file.
 ```bash
 sift init "/path/to/vault"
 sift init "/path/to/vault" --daily-notes "Journal"
+sift init "/path/to/vault" --projects "Projects" --project-template "Templates/Project.md"
 sift init "/path/to/vault" --exclude Templates Attachments Archive
 ```
 

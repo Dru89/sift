@@ -27,7 +27,7 @@ The agent integration files are in `packages/agent-skill/`:
 **MCP Server (for Claude Code & Claude Desktop):**
 - `packages/agent-skill/mcp-server.ts` -- MCP server providing sift tools
 - Installed via `./scripts/install-agent-claude.sh`
-- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_find`, `sift_done`, `sift_projects`, `sift_project_create`
+- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_find`, `sift_done`, `sift_projects`, `sift_project_create`, `sift_project_path`, `sift_note`
 
 **OpenCode Skill:**
 - `packages/agent-skill/SKILL.md` -- Skill definition
@@ -131,14 +131,14 @@ Pure library, no CLI or UI. Key exports:
 
 - **Parser**: `parseLine()`, `parseContent()`, `formatTask()`
 - **Scanner**: `scanTasks()`, `scanFile()`, `getNextTasks()`, `getOverdueTasks()`, `getDueToday()`, `sortByUrgency()`
-- **Writer**: `addTask()`, `addTaskToFile()`, `completeTask()`, `findTasks()`
+- **Writer**: `addTask()`, `addTaskToFile()`, `addNote()`, `completeTask()`, `findTasks()`
 - **Projects**: `listProjects()`, `findProject()`, `createProject()`
 - **Config**: `resolveConfig()`, `writeConfig()`
-- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`, `ProjectInfo`
+- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`, `AddNoteOptions`, `ProjectInfo`
 
 ### @sift/cli (`packages/cli/`)
 
-Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `find`, `projects`, `project create`, `summary`, `init`
+Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `find`, `note`, `projects`, `project create`, `project path`, `summary`, `init`
 
 Uses commander.js for arg parsing and chalk for terminal output.
 
