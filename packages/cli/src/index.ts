@@ -10,6 +10,7 @@ import {
   getNextTasks,
   getOverdueTasks,
   getDueToday,
+  getReviewSummary,
   sortByUrgency,
   addTask,
   addNote,
@@ -19,6 +20,8 @@ import {
   findProject,
   createProject,
   localToday,
+  addDays,
+  previousDayOfWeek,
   type Priority,
   type SiftConfig,
 } from "@sift/core";
@@ -305,6 +308,92 @@ projectCmd
       console.log(path.join(config.vaultPath, project.filePath));
     } else {
       console.log(project.filePath);
+    }
+  });
+
+// ─── sift review ─────────────────────────────────────────────
+program
+  .command("review")
+  .description("Review summary: completed, created, stale, changelog, and upcoming")
+  .option("--since <date>", "Start of review period (YYYY-MM-DD, default: last Friday)")
+  .option("--until <date>", "End of review period (YYYY-MM-DD, default: today)")
+  .option("--days <number>", "Review the last N days (alternative to --since)")
+  .action(async (opts) => {
+    const config = await resolveConfig();
+    const today = localToday();
+
+    let since: string | undefined = opts.since;
+    const until: string | undefined = opts.until;
+
+    if (opts.days) {
+      const days = parseInt(opts.days, 10);
+      if (isNaN(days) || days < 1) {
+        console.error(chalk.red("Invalid --days value: ") + opts.days);
+        process.exit(1);
+      }
+      since = addDays(until || today, -(days - 1));
+    }
+
+    const review = await getReviewSummary(config, since, until);
+
+    console.log(chalk.bold("📋 Review: ") + chalk.dim(`${review.since} → ${review.until}`));
+    console.log();
+
+    // Completed
+    if (review.completed.length > 0) {
+      console.log(chalk.bold.green(`✅ Completed (${review.completed.length})`));
+      for (const task of review.completed) {
+        const parts = [chalk.green("  ✓"), task.description];
+        if (task.done) parts.push(chalk.dim(task.done));
+        parts.push(chalk.dim(`[${task.filePath}]`));
+        console.log(parts.join("  "));
+      }
+      console.log();
+    } else {
+      console.log(chalk.dim("✅ No tasks completed in this period."));
+      console.log();
+    }
+
+    // Created (still open)
+    if (review.created.length > 0) {
+      console.log(chalk.bold.cyan(`➕ Created & still open (${review.created.length})`));
+      for (const task of review.created) {
+        console.log("  " + formatTask(task, { showFile: true }));
+      }
+      console.log();
+    }
+
+    // Changelog (notes added to projects)
+    if (review.changelog.length > 0) {
+      console.log(chalk.bold.magenta(`📝 Project notes (${review.changelog.length})`));
+      for (const entry of review.changelog) {
+        console.log(`  ${chalk.dim(entry.date)}  ${chalk.white(entry.project)}  ${entry.summary}`);
+      }
+      console.log();
+    }
+
+    // Stale
+    if (review.stale.length > 0) {
+      console.log(chalk.bold.yellow(`⚠️  Stale — no due date, no schedule (${review.stale.length})`));
+      for (const task of review.stale.slice(0, 10)) {
+        const parts = ["  " + chalk.dim("○"), task.description];
+        if (task.created) parts.push(chalk.dim(`created ${task.created}`));
+        parts.push(chalk.dim(`[${task.filePath}]`));
+        console.log(parts.join("  "));
+      }
+      if (review.stale.length > 10) {
+        console.log(chalk.dim(`  ... and ${review.stale.length - 10} more`));
+      }
+      console.log();
+    }
+
+    // Upcoming
+    if (review.upcoming.length > 0) {
+      console.log(chalk.bold(`📅 Coming up (next 7 days)`));
+      for (const task of review.upcoming) {
+        console.log("  " + formatTask(task));
+      }
+      console.log();
     }
   });
 

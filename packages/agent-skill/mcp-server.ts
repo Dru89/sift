@@ -239,6 +239,28 @@ const tools: Tool[] = [
       required: ["content"],
     },
   },
+  {
+    name: "sift_review",
+    description:
+      "Generate a review summary for a time period. Shows tasks completed, tasks created (still open), stale tasks (no dates), project changelog entries, and upcoming tasks. Defaults to since last Friday.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        since: {
+          type: "string",
+          description: "Start of review period (YYYY-MM-DD). Defaults to last Friday.",
+        },
+        until: {
+          type: "string",
+          description: "End of review period (YYYY-MM-DD). Defaults to today.",
+        },
+        days: {
+          type: "number",
+          description: "Review the last N days (alternative to --since)",
+        },
+      },
+    },
+  },
 ];
 
 // Create server instance
@@ -380,6 +402,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cliArgs.push("--project", args.project as string);
         if (args?.heading)
           cliArgs.push("--heading", args.heading as string);
+        const result = runSift(cliArgs);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "sift_review": {
+        const cliArgs = ["review"];
+        if (args?.days) cliArgs.push("--days", String(args.days));
+        else if (args?.since) cliArgs.push("--since", args.since as string);
+        if (args?.until) cliArgs.push("--until", args.until as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],

@@ -131,6 +131,42 @@ sift note --project "Website Redesign" --heading "## Log" "Shipped v1.0"</code><
     </tbody>
   </table>
 
+  <p>
+    When targeting a project, a changelog entry is automatically appended under <code>## Changelog</code>
+    in the project file. This provides a lightweight activity log that the review command aggregates.
+  </p>
+
+  <h2 id="review"><code>sift review</code></h2>
+  <p>
+    Generate a review summary for a time period. Shows completed tasks, newly created tasks,
+    project changelog entries, stale tasks, and upcoming tasks. Defaults to since last Friday
+    (designed for weekly reviews).
+  </p>
+  <pre><code>sift review                     # since last Friday (default)
+sift review --days 30           # last 30 days
+sift review --since 2026-03-01  # since a specific date
+sift review --since 2026-03-01 --until 2026-03-07  # custom range</code></pre>
+
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--since &lt;date&gt;</code></td><td>Start of review period (<code>YYYY-MM-DD</code>, default: last Friday)</td></tr>
+      <tr><td><code>--until &lt;date&gt;</code></td><td>End of review period (<code>YYYY-MM-DD</code>, default: today)</td></tr>
+      <tr><td><code>--days &lt;number&gt;</code></td><td>Review the last N days (alternative to <code>--since</code>)</td></tr>
+    </tbody>
+  </table>
+
+  <p>The review includes:</p>
+  <ul>
+    <li><strong>Completed</strong> — tasks with a done date in the review period</li>
+    <li><strong>Created &amp; still open</strong> — tasks with a created date in the period</li>
+    <li><strong>Project notes</strong> — changelog entries from project files</li>
+    <li><strong>Stale</strong> — open tasks with no due or scheduled date (may need triage)</li>
+    <li><strong>Upcoming</strong> — tasks due in the 7 days after the review period</li>
+  </ul>
+
   <h2 id="projects"><code>sift projects</code></h2>
   <p>List all projects in the vault.</p>
   <pre><code>sift projects</code></pre>

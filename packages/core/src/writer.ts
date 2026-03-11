@@ -42,6 +42,12 @@ export interface AddNoteOptions {
    * Defaults to "## Notes" for projects, "## Journal" for daily notes.
    */
   heading?: string;
+
+  /**
+   * Optional explicit summary for the changelog entry. If omitted, a summary
+   * is auto-generated from the note content. Only used when adding to a project.
+   */
+  changelogSummary?: string;
 }
 
 /**
@@ -314,6 +320,7 @@ async function addNoteToDailyNote(
 
 /**
  * Add a note to a project file under a heading (default "## Notes").
+ * Also appends a dated changelog entry under "## Changelog".
  */
 async function addNoteToProject(
   config: SiftConfig,
@@ -331,6 +338,13 @@ async function addNoteToProject(
 
   const heading = options.heading || "## Notes";
   content = insertContentUnderHeading(content, options.content, heading);
+
+  // Generate a changelog summary from the note content
+  const summary = options.changelogSummary || generateChangelogSummary(options.content, heading);
+  const today = localToday();
+  const changelogLine = `- **${today}:** ${summary}`;
+  content = insertContentUnderHeading(content, changelogLine, "## Changelog");
+
   await fs.writeFile(fullPath, content, "utf-8");
 
   return options.content;
@@ -370,6 +384,12 @@ filename does not include ${date}
 ## Journal
 
 
+## Tasks Created Today
+\`\`\`tasks
+created on ${date}
+filename does not include ${date}
+\`\`\`
+
 ## Notes Created Today
 \`\`\`dataview
 TABLE type as "Type"
@@ -380,6 +400,38 @@ SORT file.ctime DESC
 
 ---
 **Previous:** [[${prevStr}]] | **Next:** [[${nextStr}]]`;
+}
+
+/**
+ * Generate a short changelog summary from note content.
+ * Takes the first meaningful line of content and truncates to ~80 chars.
+ */
+function generateChangelogSummary(content: string, heading: string): string {
+  // Strip the heading name for context (e.g., "## Notes" -> "Notes")
+  const sectionName = heading.replace(/^#+\s*/, "");
+
+  // Find the first non-empty, non-heading line
+  const lines = content.split("\n");
+  let firstLine = "";
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith("#")) {
+      // Strip leading markdown list markers
+      firstLine = trimmed.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "");
+      break;
+    }
+  }
+
+  if (!firstLine) {
+    return `Added note under ${heading}`;
+  }
+
+  // Truncate to ~80 chars
+  if (firstLine.length > 80) {
+    firstLine = firstLine.slice(0, 77) + "...";
+  }
+
+  return firstLine;
 }
 
 /**

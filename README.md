@@ -14,7 +14,7 @@ Sift reads your Obsidian vault directly, parses tasks in the [emoji format](http
 
 ## Features
 
-- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, `sift note`, and more
+- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, `sift note`, `sift review`, and more
 - **Raycast extension** -- search tasks, view priorities, add tasks with a form
 - **AI agent integration** -- Works with Claude Code, Claude Desktop, and OpenCode for conversational task management
 - **Shared core library** -- all interfaces use the same `@sift/core` package, so they always behave consistently
@@ -71,6 +71,11 @@ sift note "Had a great meeting about the roadmap"
 
 # Add a note to a project
 sift note --project "MP3 Parser" "Decided to use ID3v2.4 format"
+
+# Weekly review
+sift review                     # since last Friday
+sift review --days 30           # last 30 days
+sift review --since 2026-03-01  # since a specific date
 ```
 
 To make `sift` available globally:
@@ -191,7 +196,11 @@ Tasks can also be added to project files using `sift add --project <name>`, whic
 
 ### Notes
 
-Freeform notes (not tasks) can be added with `sift note`. By default, notes go under `## Journal` in today's daily note. Use `--project` to target a project file (defaults to `## Notes` heading), and `--heading` to target a custom section.
+Freeform notes (not tasks) can be added with `sift note`. By default, notes go under `## Journal` in today's daily note. Use `--project` to target a project file (defaults to `## Notes` heading), and `--heading` to target a custom section. Notes added to projects automatically create a changelog entry.
+
+### Review
+
+`sift review` generates a summary of activity over a time period: tasks completed, tasks created (still open), project changelog entries, stale tasks, and upcoming tasks. Defaults to since last Friday (designed for weekly reviews). Use `--since <date>`, `--days <N>`, or `--until <date>` for custom periods.
 
 ### Projects
 

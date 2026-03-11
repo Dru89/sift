@@ -136,3 +136,50 @@ export interface TaskFilter {
   /** Free-text search in description */
   search?: string;
 }
+
+/**
+ * A parsed changelog entry from a project file.
+ * Changelog entries are lines like: `- **2026-03-10:** Added research notes on...`
+ */
+export interface ChangelogEntry {
+  /** The date the entry was logged (YYYY-MM-DD) */
+  date: string;
+
+  /** The summary text */
+  summary: string;
+
+  /** The project name this entry belongs to */
+  project: string;
+
+  /** Path to the project file, relative to vault root */
+  filePath: string;
+
+  /** The line number in the file (1-indexed) */
+  line: number;
+}
+
+/**
+ * A weekly (or custom period) review summary.
+ */
+export interface ReviewSummary {
+  /** Start of the review period (inclusive, YYYY-MM-DD) */
+  since: string;
+
+  /** End of the review period (inclusive, YYYY-MM-DD) */
+  until: string;
+
+  /** Tasks completed during the period (have ✅ date in range) */
+  completed: Task[];
+
+  /** Tasks created during the period that are still open (have ➕ date in range) */
+  created: Task[];
+
+  /** Open tasks with no due/scheduled date, created before the period */
+  stale: Task[];
+
+  /** Changelog entries from project files during the period */
+  changelog: ChangelogEntry[];
+
+  /** Tasks due in the 7 days after the review period */
+  upcoming: Task[];
+}

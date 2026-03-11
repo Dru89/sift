@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { glob } from "glob";
 import { parseContent } from "./parser.js";
-import { localToday } from "./dates.js";
-import { type Task, type TaskFilter, type SiftConfig, type Priority } from "./types.js";
+import { localToday, addDays, previousDayOfWeek } from "./dates.js";
+import { type Task, type TaskFilter, type SiftConfig, type Priority, type ChangelogEntry, type ReviewSummary } from "./types.js";
 
 /**
  * Priority ordering for comparison. Lower number = higher priority.
@@ -176,6 +176,158 @@ export async function getDueToday(config: SiftConfig): Promise<Task[]> {
   const today = localToday();
   const tasks = await scanTasks(config, { status: "open" });
   return sortByUrgency(tasks.filter((t) => t.due === today));
+}
+
+/**
+ * Scan all project files for changelog entries.
+ * Changelog entries are lines under "## Changelog" matching:
+ *   - **YYYY-MM-DD:** summary text
+ *
+ * @param config - The sift configuration
+ * @param since - Only return entries on or after this date (YYYY-MM-DD)
+ * @param until - Only return entries on or before this date (YYYY-MM-DD)
+ * @returns Array of changelog entries sorted by date (newest first)
+ */
+export async function scanChangelog(
+  config: SiftConfig,
+  since?: string,
+  until?: string,
+): Promise<ChangelogEntry[]> {
+  const { vaultPath, projectsPath } = config;
+  const projectsDir = path.join(vaultPath, projectsPath);
+
+  let files: string[];
+  try {
+    files = await glob("*.md", { cwd: projectsDir, absolute: false });
+  } catch {
+    return [];
+  }
+
+  const entries: ChangelogEntry[] = [];
+  const changelogPattern = /^- \*\*(\d{4}-\d{2}-\d{2}):\*\*\s+(.+)$/;
+
+  for (const file of files) {
+    const fullPath = path.join(projectsDir, file);
+    const content = await fs.readFile(fullPath, "utf-8");
+    const lines = content.split("\n");
+    const filePath = path.join(projectsPath, file);
+    const projectName = path.basename(file, ".md");
+
+    // Find the ## Changelog heading
+    let inChangelog = false;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+
+      if (trimmed === "## Changelog") {
+        inChangelog = true;
+        continue;
+      }
+
+      // Stop at the next heading
+      if (inChangelog && trimmed.startsWith("#")) {
+        break;
+      }
+
+      if (!inChangelog) continue;
+
+      const match = trimmed.match(changelogPattern);
+      if (match) {
+        const [, date, summary] = match;
+        if (since && date < since) continue;
+        if (until && date > until) continue;
+        entries.push({
+          date,
+          summary,
+          project: projectName,
+          filePath,
+          line: i + 1,
+        });
+      }
+    }
+  }
+
+  // Sort by date descending (newest first)
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+  return entries;
+}
+
+/**
+ * Generate a review summary for a given period.
+ *
+ * @param config - The sift configuration
+ * @param since - Start of review period (YYYY-MM-DD). Defaults to last Friday.
+ * @param until - End of review period (YYYY-MM-DD). Defaults to today.
+ * @returns A ReviewSummary with completed, created, stale, changelog, and upcoming data
+ */
+export async function getReviewSummary(
+  config: SiftConfig,
+  since?: string,
+  until?: string,
+): Promise<ReviewSummary> {
+  const today = localToday();
+  const effectiveUntil = until || today;
+  // Default: since last Friday (day 5)
+  const effectiveSince = since || previousDayOfWeek(effectiveUntil, 5);
+
+  const allTasks = await scanTasks(config);
+
+  // Tasks completed during the period
+  const completed = sortByUrgency(
+    allTasks.filter(
+      (t) =>
+        t.status === "done" &&
+        t.done !== null &&
+        t.done >= effectiveSince &&
+        t.done <= effectiveUntil,
+    ),
+  );
+
+  // Tasks created during the period that are still open
+  const created = sortByUrgency(
+    allTasks.filter(
+      (t) =>
+        t.status === "open" &&
+        t.created !== null &&
+        t.created >= effectiveSince &&
+        t.created <= effectiveUntil,
+    ),
+  );
+
+  // Stale tasks: open, no due or scheduled date, created before the period
+  const stale = sortByUrgency(
+    allTasks.filter(
+      (t) =>
+        t.status === "open" &&
+        t.due === null &&
+        t.scheduled === null &&
+        (t.created === null || t.created < effectiveSince),
+    ),
+  );
+
+  // Changelog entries from project files
+  const changelog = await scanChangelog(config, effectiveSince, effectiveUntil);
+
+  // Upcoming: tasks due in the 7 days after the period
+  const upcomingEnd = addDays(effectiveUntil, 7);
+  const upcoming = sortByUrgency(
+    allTasks.filter(
+      (t) =>
+        t.status === "open" &&
+        t.due !== null &&
+        t.due > effectiveUntil &&
+        t.due <= upcomingEnd,
+    ),
+  );
+
+  return {
+    since: effectiveSince,
+    until: effectiveUntil,
+    completed,
+    created,
+    stale,
+    changelog,
+    upcoming,
+  };
 }
 
 /**

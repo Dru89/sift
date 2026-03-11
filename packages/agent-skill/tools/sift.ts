@@ -253,3 +253,29 @@ export const addNote = tool({
     return runSift(cliArgs);
   },
 });
+
+export const review = tool({
+  description:
+    "Generate a review summary for a time period. Shows tasks completed, tasks created (still open), stale tasks (no dates), project changelog entries, and upcoming tasks. Defaults to since last Friday.",
+  args: {
+    since: tool.schema
+      .string()
+      .optional()
+      .describe("Start of review period (YYYY-MM-DD). Defaults to last Friday."),
+    until: tool.schema
+      .string()
+      .optional()
+      .describe("End of review period (YYYY-MM-DD). Defaults to today."),
+    days: tool.schema
+      .number()
+      .optional()
+      .describe("Review the last N days (alternative to --since)"),
+  },
+  async execute(args) {
+    const cliArgs = ["review"];
+    if (args.days) cliArgs.push("--days", String(args.days));
+    else if (args.since) cliArgs.push("--since", args.since);
+    if (args.until) cliArgs.push("--until", args.until);
+    return runSift(cliArgs);
+  },
+});

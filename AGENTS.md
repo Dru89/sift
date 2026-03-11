@@ -27,7 +27,7 @@ The agent integration files are in `packages/agent-skill/`:
 **MCP Server (for Claude Code & Claude Desktop):**
 - `packages/agent-skill/mcp-server.ts` -- MCP server providing sift tools
 - Installed via `./scripts/install-agent-claude.sh`
-- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_find`, `sift_done`, `sift_projects`, `sift_project_create`, `sift_project_path`, `sift_note`
+- Tools: `sift_list`, `sift_next`, `sift_summary`, `sift_add`, `sift_find`, `sift_done`, `sift_projects`, `sift_project_create`, `sift_project_path`, `sift_note`, `sift_review`
 
 **OpenCode Skill:**
 - `packages/agent-skill/SKILL.md` -- Skill definition
@@ -106,6 +106,32 @@ Task completion uses a two-step flow to prevent accidentally marking the wrong t
 
 The CLI `sift done` command supports both modes: search-based (`sift done "search term"`) and precise (`sift done --file "path" --line N`). Agent tools follow the same pattern.
 
+### Notes and changelog
+
+Freeform notes (not tasks) can be added with `addNote()` or `sift note`. Notes go under `## Journal` in the daily note by default, or `## Notes` in project files.
+
+When a note is added to a project, a one-line dated summary is automatically appended under `## Changelog` in the project file:
+
+```markdown
+## Changelog
+- **2026-03-10:** Decided to use ID3v2.4 format
+- **2026-03-08:** Added initial research notes
+```
+
+Only notes create changelog entries (not tasks). The summary is auto-generated from the first ~80 characters of the note content, or can be explicitly provided via `changelogSummary` in `AddNoteOptions`.
+
+### Review
+
+The review system provides a summary of activity over a time period. `getReviewSummary()` (in the scanner) returns a `ReviewSummary` with:
+
+- **Completed tasks**: tasks with a `✅` date in the review period
+- **Created & still open**: tasks with a `➕` date in the period that are still open
+- **Stale tasks**: open tasks with no due or scheduled date (may need triage)
+- **Changelog entries**: dated summaries aggregated from all project `## Changelog` sections
+- **Upcoming tasks**: tasks due in the 7 days after the review period
+
+The default review period is "since last Friday" through today, designed for a weekly review cadence. The CLI `sift review` command accepts `--since <date>`, `--until <date>`, and `--days <N>` flags.
+
 ## Building
 
 ```bash
@@ -130,15 +156,15 @@ sift summary
 Pure library, no CLI or UI. Key exports:
 
 - **Parser**: `parseLine()`, `parseContent()`, `formatTask()`
-- **Scanner**: `scanTasks()`, `scanFile()`, `getNextTasks()`, `getOverdueTasks()`, `getDueToday()`, `sortByUrgency()`
+- **Scanner**: `scanTasks()`, `scanFile()`, `getNextTasks()`, `getOverdueTasks()`, `getDueToday()`, `sortByUrgency()`, `getReviewSummary()`, `scanChangelog()`
 - **Writer**: `addTask()`, `addTaskToFile()`, `addNote()`, `completeTask()`, `findTasks()`
 - **Projects**: `listProjects()`, `findProject()`, `createProject()`
 - **Config**: `resolveConfig()`, `writeConfig()`
-- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`, `AddNoteOptions`, `ProjectInfo`
+- **Types**: `Task`, `TaskStatus`, `Priority`, `SiftConfig`, `TaskFilter`, `NewTaskOptions`, `AddNoteOptions`, `ProjectInfo`, `ChangelogEntry`, `ReviewSummary`
 
 ### @sift/cli (`packages/cli/`)
 
-Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `find`, `note`, `projects`, `project create`, `project path`, `summary`, `init`
+Commands: `list`, `next`, `today`, `overdue`, `add`, `done`, `find`, `note`, `review`, `projects`, `project create`, `project path`, `summary`, `init`
 
 Uses commander.js for arg parsing and chalk for terminal output.
 

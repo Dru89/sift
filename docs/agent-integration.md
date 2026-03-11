@@ -20,6 +20,7 @@ All integrations provide these core tools:
 - `sift_project_create` / `sift_projectCreate` - Create a new project
 - `sift_project_path` / `sift_projectPath` - Get a project's file path
 - `sift_note` / `sift_addNote` - Add freeform notes
+- `sift_review` / `sift_review` - Generate a review summary
 
 Note: Tool names use underscores in MCP (e.g., `sift_project_create`) and camelCase in OpenCode (e.g., `sift_projectCreate`).
 
@@ -137,6 +138,7 @@ The tools file (`sift.ts`) defines OpenCode custom tools that call the `sift` CL
 | `sift_projectCreate` | Create a new project from template |
 | `sift_projectPath` | Get the file path for a project |
 | `sift_addNote` | Add a freeform note to daily note or project |
+| `sift_review` | Generate a review summary (completed, created, stale, changelog, upcoming) |
 
 The tools resolve the CLI in this order:
 1. `SIFT_CLI_PATH` environment variable (absolute path to the built CLI entry point)
@@ -156,6 +158,9 @@ Once set up, you can use natural language with your AI assistant:
 - "Show me my overdue tasks"
 - "What projects do I have?"
 - "Add a note to MP3 Parser that we decided to use ID3v2.4"
+- "Give me a weekly review"
+- "What did I accomplish this week?"
+- "Review the last 30 days"
 
 The agent will use the sift tools to interact with your Obsidian vault.
 

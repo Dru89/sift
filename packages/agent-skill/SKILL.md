@@ -21,6 +21,7 @@ The following custom tools are available for interacting with the user's tasks:
 - **`sift_projectCreate`** - Create a new project from template
 - **`sift_projectPath`** - Get the vault-relative file path for a project (for reading/editing)
 - **`sift_addNote`** - Add a freeform note to a daily note or project file
+- **`sift_review`** - Generate a review summary (completed, created, stale, changelog, upcoming)
 
 ## Task format
 
@@ -133,6 +134,46 @@ Tasks should **always be added to today's daily note** using `sift_add` (unless 
    - "add a task for Friday" -> `scheduled: <next Friday's date>`
    - "add a task for next week" -> `scheduled: <next Monday's date>`
 3. **Use `due` instead of `scheduled`** if the task sounds high-priority or has a hard deadline (e.g. "I need to do X by Friday", "this is due next Tuesday"). Use your judgment -- `due` implies a deadline, `scheduled` implies "plan to work on this that day."
+
+## Review
+
+Use `sift_review` to generate a review summary for any time period. It defaults to since last Friday through today, but the period is fully flexible.
+
+**What the review shows:**
+- **Completed tasks** -- tasks with a `✅` date in the review period
+- **Created & still open** -- tasks with a `➕` date in the period that haven't been completed yet
+- **Project notes** -- changelog entries from project files during the period
+- **Stale tasks** -- open tasks with no due or scheduled date (may need triage)
+- **Upcoming** -- tasks due in the 7 days after the review period
+
+**Parameters:**
+- `since` -- start date (YYYY-MM-DD), defaults to last Friday
+- `until` -- end date (YYYY-MM-DD), defaults to today
+- `days` -- review the last N days (alternative to `since`)
+
+**When to use:**
+- User asks "what did I do this week?" or "weekly review" -- use defaults
+- User asks "what's happened the last 3 days?" -- use `days: 3`
+- User asks "what's happened since Monday?" -- use `since` with Monday's date
+- User asks "review March" -- use `since` and `until` for the month range
+- User wants to reflect on recent progress across projects
+
+### Changelog tracking
+
+When you add a note to a project using `sift_addNote`, a changelog entry is automatically appended under a `## Changelog` heading in the project file. The changelog entry is a dated one-liner summarizing the note:
+
+```
+## Changelog
+- **2026-03-10:** Decided to use ID3v2.4 format
+- **2026-03-08:** Added initial research notes
+```
+
+This happens automatically -- you don't need to do anything special. The changelog provides a lightweight activity log that the review command can aggregate across all projects.
+
+**Notes about changelog:**
+- Only notes create changelog entries, not tasks (tasks already have `➕` created dates)
+- The summary is auto-generated from the first ~80 characters of the note content
+- You can pass an explicit `changelogSummary` via the CLI if you want a custom summary
 
 ## CWD project context
 

@@ -154,6 +154,32 @@ sift note --project "My Project" --heading "## Log" "Shipped v1.0"
 | `--project <name>` | Add note to a project instead of the daily note |
 | `--heading <heading>` | Target heading (default: `## Journal` for daily, `## Notes` for projects) |
 
+When targeting a project, the note goes under `## Notes` by default. A changelog entry is automatically appended under `## Changelog` in the project file.
+
+### `sift review`
+
+Generate a review summary showing completed tasks, newly created tasks, project changelog entries, stale tasks, and upcoming tasks.
+
+```bash
+sift review                     # since last Friday (default)
+sift review --days 30           # last 30 days
+sift review --since 2026-03-01  # since a specific date
+sift review --since 2026-03-01 --until 2026-03-07  # custom range
+```
+
+| Flag | Description |
+|------|-------------|
+| `--since <date>` | Start of review period (`YYYY-MM-DD`, default: last Friday) |
+| `--until <date>` | End of review period (`YYYY-MM-DD`, default: today) |
+| `--days <number>` | Review the last N days (alternative to `--since`) |
+
+The review shows:
+- **Completed** -- tasks with a `✅` date in the review period
+- **Created & still open** -- tasks with a `➕` date in the period
+- **Project notes** -- changelog entries from project files
+- **Stale** -- open tasks with no due or scheduled date
+- **Upcoming** -- tasks due in the 7 days after the review period
+
 ### `sift projects`
 
 List all projects in the vault.

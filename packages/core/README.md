@@ -189,6 +189,37 @@ Get open tasks whose due date is today.
 
 Apply a `TaskFilter` to an array of tasks. Useful if you've already loaded tasks and want to filter in memory.
 
+#### `getReviewSummary(config, since?, until?): Promise<ReviewSummary>`
+
+Generate a review summary for a given time period. Returns completed tasks, created (still open) tasks, stale tasks, project changelog entries, and upcoming tasks.
+
+Defaults: `since` = last Friday, `until` = today.
+
+```typescript
+import { getReviewSummary } from "@sift/core";
+
+const review = await getReviewSummary(config);
+// review.completed  -- tasks done during the period
+// review.created    -- tasks created during the period, still open
+// review.stale      -- open tasks with no due/scheduled date
+// review.changelog  -- ChangelogEntry[] from project files
+// review.upcoming   -- tasks due in the next 7 days after the period
+
+// Custom period
+const review = await getReviewSummary(config, "2026-03-01", "2026-03-07");
+```
+
+#### `scanChangelog(config, since?, until?): Promise<ChangelogEntry[]>`
+
+Scan all project files for changelog entries (lines matching `- **YYYY-MM-DD:** summary`), optionally filtered by date range. Returns entries sorted by date (newest first).
+
+```typescript
+import { scanChangelog } from "@sift/core";
+
+const entries = await scanChangelog(config, "2026-03-01");
+// [{ date: "2026-03-10", summary: "Decided to use ID3v2.4", project: "MP3 Parser", filePath: "Projects/MP3 Parser.md", line: 42 }]
+```
+
 ### Writing
 
 #### `addTask(config, options): Promise<string>`
@@ -265,7 +296,7 @@ const matches = await findTasks(config, "architecture");
 
 Add a freeform note to today's daily note or to a project file. Returns the content that was written.
 
-When targeting a project, the note goes under `## Notes` by default. When targeting a daily note, it goes under `## Journal` by default. Use `options.heading` to specify a different section.
+When targeting a project, the note goes under `## Notes` by default and a changelog entry is automatically appended under `## Changelog`. When targeting a daily note, it goes under `## Journal` by default. Use `options.heading` to specify a different section.
 
 ```typescript
 import { addNote } from "@sift/core";
@@ -387,6 +418,7 @@ interface AddNoteOptions {
   content: string;          // The note content (can be multi-line)
   project?: string;         // Target project name (adds to project file instead of daily note)
   heading?: string;         // Target heading (default: "## Journal" for daily, "## Notes" for projects)
+  changelogSummary?: string; // Explicit changelog summary (auto-generated if omitted, only for project notes)
 }
 ```
 
@@ -412,4 +444,30 @@ type Priority = "highest" | "high" | "medium" | "low" | "lowest" | "none";
 
 ```typescript
 type TaskStatus = "open" | "done" | "cancelled";
+```
+
+### `ChangelogEntry`
+
+```typescript
+interface ChangelogEntry {
+  date: string;         // YYYY-MM-DD
+  summary: string;      // The summary text
+  project: string;      // Project name
+  filePath: string;     // Vault-relative path to the project file
+  line: number;         // Line number in the file (1-indexed)
+}
+```
+
+### `ReviewSummary`
+
+```typescript
+interface ReviewSummary {
+  since: string;            // Start of the review period (YYYY-MM-DD)
+  until: string;            // End of the review period (YYYY-MM-DD)
+  completed: Task[];        // Tasks completed during the period
+  created: Task[];          // Tasks created during the period, still open
+  stale: Task[];            // Open tasks with no due/scheduled date
+  changelog: ChangelogEntry[]; // Project changelog entries during the period
+  upcoming: Task[];         // Tasks due in the 7 days after the period
+}
 ```

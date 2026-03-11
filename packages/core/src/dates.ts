@@ -29,3 +29,17 @@ export function addDays(dateStr: string, days: number): string {
   d.setDate(d.getDate() + days);
   return localDateString(d);
 }
+
+/**
+ * Get the most recent occurrence of a given day of the week on or before `from`.
+ * Day of week: 0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday.
+ * If `from` is already that day, returns `from`.
+ */
+export function previousDayOfWeek(from: string, dayOfWeek: number): string {
+  const [year, month, day] = from.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  const currentDay = d.getDay();
+  const diff = (currentDay - dayOfWeek + 7) % 7;
+  if (diff === 0) return from;
+  return addDays(from, -diff);
+}
