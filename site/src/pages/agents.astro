@@ -62,11 +62,12 @@ AGENT: Added to project "Website Redesign":
       <tr><td><code>sift_add</code></td><td>Add a task to today's daily note or a project</td></tr>
       <tr><td><code>sift_find</code></td><td>Search tasks without modifying them</td></tr>
       <tr><td><code>sift_done</code></td><td>Mark a task as complete (by search or precise file:line)</td></tr>
-      <tr><td><code>sift_projects</code></td><td>List all projects in the vault</td></tr>
+      <tr><td><code>sift_projects</code></td><td>List all projects in the vault (optional tag filter)</td></tr>
       <tr><td><code>sift_projectCreate</code></td><td>Create a new project from template</td></tr>
       <tr><td><code>sift_projectPath</code></td><td>Get the file path for a project</td></tr>
+      <tr><td><code>sift_projectSet</code></td><td>Update project metadata: status, timeframe, tags</td></tr>
       <tr><td><code>sift_addNote</code></td><td>Add a freeform note to a daily note or project</td></tr>
-      <tr><td><code>sift_review</code></td><td>Generate a review summary (completed, created, stale, changelog, upcoming)</td></tr>
+      <tr><td><code>sift_review</code></td><td>Generate a review summary (completed, created, new notes, stale, changelog, upcoming)</td></tr>
     </tbody>
   </table>
 
@@ -203,7 +204,8 @@ cp packages/agent-skill/tools/sift.ts ~/.config/opencode/tools/sift.ts</code></p
         <li>"What projects do I have?"</li>
         <li>"Add a note to Website Redesign"</li>
         <li>"Create a new project called 'Q2 Planning'"</li>
-        <li>"What's in the Health Tracker project?"</li>
+        <li>"Mark the MP3 Parser project as done"</li>
+        <li>"Tag the Sift project with 'tooling'"</li>
       </ul>
     </div>
     <div class="prompt-card">

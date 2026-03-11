@@ -163,17 +163,46 @@ sift review --since 2026-03-01 --until 2026-03-07  # custom range</code></pre>
     <li><strong>Completed</strong> — tasks with a done date in the review period</li>
     <li><strong>Created &amp; still open</strong> — tasks with a created date in the period</li>
     <li><strong>Project notes</strong> — changelog entries from project files</li>
+    <li><strong>New notes</strong> — non-task vault files (meetings, weblinks, etc.) with a <code>created</code> or <code>date</code> frontmatter field in the period, grouped by type</li>
     <li><strong>Stale</strong> — open tasks with no due or scheduled date (may need triage)</li>
     <li><strong>Upcoming</strong> — tasks due in the 7 days after the review period</li>
   </ul>
 
   <h2 id="projects"><code>sift projects</code></h2>
-  <p>List all projects in the vault.</p>
-  <pre><code>sift projects</code></pre>
+  <p>List all projects in the vault. Active and planning projects are shown at full brightness; someday and done projects are dimmed.</p>
+  <pre><code>sift projects                 # all projects
+sift projects --tag vibecode  # filter by tag</code></pre>
+
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--tag &lt;tag&gt;</code></td><td>Filter to projects with this tag</td></tr>
+    </tbody>
+  </table>
 
   <h2 id="project-create"><code>sift project create</code></h2>
-  <p>Create a new project from the configured template.</p>
+  <p>Create a new project from the configured template. The <code>created</code> date is automatically set to today.</p>
   <pre><code>sift project create "My New Project"</code></pre>
+
+  <h2 id="project-set"><code>sift project set</code></h2>
+  <p>Update frontmatter fields on a project.</p>
+  <pre><code>sift project set "My Project" --status active
+sift project set "My Project" --status someday
+sift project set "My Project" --tags ai tooling
+sift project set "My Project" --status planning --timeframe "Q2 2026" --tags ai</code></pre>
+
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--status &lt;status&gt;</code></td><td><code>active</code>, <code>planning</code>, <code>someday</code>, or <code>done</code></td></tr>
+      <tr><td><code>--timeframe &lt;timeframe&gt;</code></td><td>Planning horizon (e.g. <code>Q2 2026</code>)</td></tr>
+      <tr><td><code>--tags &lt;tags...&gt;</code></td><td>Tag list, space-separated (replaces existing tags)</td></tr>
+    </tbody>
+  </table>
 
   <h2 id="project-path"><code>sift project path</code></h2>
   <p>Get the vault-relative file path for a project. Useful for scripting or agent integrations.</p>
