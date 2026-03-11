@@ -1,4 +1,4 @@
-import { type Task, type TaskStatus, type Priority } from "./types.js";
+import { type Task, type TaskStatus, type Priority, ACTIONABLE_STATUSES } from "./types.js";
 
 /**
  * Emoji markers used by Obsidian Tasks plugin.
@@ -46,10 +46,10 @@ const DATE_PATTERN = /\d{4}-\d{2}-\d{2}/;
 
 /**
  * Matches an Obsidian task checkbox line.
- * Captures: [1] = status char (space, x, X, -)
- *           [2] = rest of the line
+ * Captures: [1] = indentation, [2] = status char (any single character), [3] = rest of line
+ * We match any char to support extended statuses: /, h, >, ~ etc.
  */
-const TASK_LINE_REGEX = /^(\s*)- \[([ xX-])\]\s+(.*)/;
+const TASK_LINE_REGEX = /^(\s*)- \[(.)\]\s+(.*)/;
 
 /**
  * Parse a single line of text into a Task, if it matches the task format.
@@ -74,6 +74,9 @@ export function parseLine(
   if (raw === "") return null;
 
   const status = parseStatus(statusChar);
+
+  // Skip non-task items (~ checkbox) — they're explicitly not tasks
+  if (status === null) return null;
   const priority = parsePriority(raw);
   const dates = parseDates(raw);
   const recurrence = parseRecurrence(raw);
@@ -115,15 +118,18 @@ export function parseContent(content: string, filePath: string): Task[] {
   return tasks;
 }
 
-function parseStatus(char: string): TaskStatus {
+/** Returns null for non-task [~] items that should be skipped entirely. */
+function parseStatus(char: string): TaskStatus | null {
   switch (char) {
+    case " ": return "open";
+    case "/": return "in_progress";
     case "x":
-    case "X":
-      return "done";
-    case "-":
-      return "cancelled";
-    default:
-      return "open";
+    case "X": return "done";
+    case "-": return "cancelled";
+    case "h": return "on_hold";
+    case ">": return "moved";
+    case "~": return null; // non_task — skip
+    default:  return "open"; // unknown chars treated as open
   }
 }
 
@@ -255,14 +261,14 @@ export function formatTask(task: Omit<Task, "raw" | "filePath" | "line">): strin
   return parts.join(" ");
 }
 
-function statusToChar(status: TaskStatus): string {
+export function statusToChar(status: TaskStatus): string {
   switch (status) {
-    case "done":
-      return "x";
-    case "cancelled":
-      return "-";
-    default:
-      return " ";
+    case "in_progress": return "/";
+    case "done":        return "x";
+    case "cancelled":   return "-";
+    case "on_hold":     return "h";
+    case "moved":       return ">";
+    default:            return " ";
   }
 }
 

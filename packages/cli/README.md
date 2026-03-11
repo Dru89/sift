@@ -120,7 +120,7 @@ sift done "quarterly report"
 sift done "PR"
 ```
 
-If the search matches exactly one open task, it's marked done. If it matches multiple, they're listed so you can be more specific.
+If the search matches exactly one actionable task (open or in-progress), it's marked done. If it matches multiple, they're listed so you can be more specific.
 
 **Precise mode** -- complete by exact file and line:
 
@@ -128,9 +128,36 @@ If the search matches exactly one open task, it's marked done. If it matches mul
 sift done --file "Daily Notes/2026-03-10.md" --line 13
 ```
 
+### `sift mark`
+
+Mark a task with any status. Use this to set a task as in-progress, on hold, moved, cancelled, or reopen it.
+
+**Search mode** -- find and mark by description:
+
+```bash
+sift mark "auth refactor" --status in_progress
+sift mark "waiting for review" --status on_hold
+sift mark "outdated idea" --status cancelled
+```
+
+**Precise mode** -- mark by exact file and line:
+
+```bash
+sift mark --file "Projects/Backend.md" --line 22 --status in_progress
+```
+
+| Status | Checkbox | Meaning |
+|--------|----------|---------|
+| `open` | `- [ ]` | Not yet started (default) |
+| `in_progress` | `- [/]` | Actively being worked on |
+| `done` | `- [x]` | Completed (also adds `✅` date) |
+| `cancelled` | `- [-]` | Won't do |
+| `on_hold` | `- [h]` | Paused, waiting on something |
+| `moved` | `- [>]` | Moved elsewhere or deferred |
+
 ### `sift find`
 
-Search for open tasks without modifying them. Useful for previewing before completing.
+Search for actionable tasks (open or in-progress) without modifying them. Useful for previewing before completing or marking.
 
 ```bash
 sift find "quarterly"
@@ -175,10 +202,11 @@ sift review --since 2026-03-01 --until 2026-03-07  # custom range
 
 The review shows:
 - **Completed** -- tasks with a `✅` date in the review period
-- **Created & still open** -- tasks with a `➕` date in the period
+- **Created & still open** -- tasks with a `➕` date in the period that are still actionable
 - **Project notes** -- changelog entries from project files
 - **New notes** -- non-task vault files (meetings, weblinks, etc.) with a `created` or `date` frontmatter field in the period, grouped by type
-- **Stale** -- open tasks with no due or scheduled date
+- **Deferred** -- tasks marked `on_hold` or `moved` that were created during the period
+- **Stale** -- actionable tasks with no due or scheduled date
 - **Upcoming** -- tasks due in the 7 days after the review period
 
 ### `sift projects`

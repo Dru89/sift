@@ -85,8 +85,8 @@ sift add "Design the API" --project "Website Redesign"</code></pre>
 
   <h2 id="find"><code>sift find</code></h2>
   <p>
-    Search for open tasks without modifying them. Shows matching tasks with file paths and line numbers.
-    Useful for previewing before completing.
+    Search for actionable tasks (open or in-progress) without modifying them. Shows matching tasks with file paths and line numbers.
+    Useful for previewing before completing or changing status.
   </p>
   <pre><code>sift find "quarterly report"
 sift find "architecture"</code></pre>
@@ -98,7 +98,7 @@ sift find "architecture"</code></pre>
   <p>Find and complete by description:</p>
   <pre><code>sift done "quarterly report"</code></pre>
   <p>
-    If exactly one open task matches, it's marked done. If multiple match, they're listed so you can be more specific.
+    If exactly one actionable task matches, it's marked done. If multiple match, they're listed so you can be more specific.
   </p>
 
   <h3>Precise mode</h3>
@@ -112,6 +112,31 @@ sift find "architecture"</code></pre>
     <tbody>
       <tr><td><code>--file &lt;path&gt;</code></td><td>File path (relative to vault root)</td></tr>
       <tr><td><code>--line &lt;number&gt;</code></td><td>Line number in the file</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="mark"><code>sift mark</code></h2>
+  <p>Mark a task with any status — not just done. Useful for tracking in-progress work, deferring tasks, or cancelling.</p>
+
+  <h3>Search mode</h3>
+  <pre><code>sift mark "auth refactor" --status in_progress
+sift mark "waiting on client" --status on_hold
+sift mark "outdated idea" --status cancelled</code></pre>
+
+  <h3>Precise mode</h3>
+  <pre><code>sift mark --file "Projects/Backend.md" --line 22 --status in_progress</code></pre>
+
+  <table>
+    <thead>
+      <tr><th>Status</th><th>Checkbox</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>open</code></td><td><code>- [ ]</code></td><td>Not yet started (default)</td></tr>
+      <tr><td><code>in_progress</code></td><td><code>- [/]</code></td><td>Actively being worked on</td></tr>
+      <tr><td><code>done</code></td><td><code>- [x]</code></td><td>Completed (also adds ✅ date)</td></tr>
+      <tr><td><code>cancelled</code></td><td><code>- [-]</code></td><td>Won't do</td></tr>
+      <tr><td><code>on_hold</code></td><td><code>- [h]</code></td><td>Paused, waiting on something</td></tr>
+      <tr><td><code>moved</code></td><td><code>- [>]</code></td><td>Moved elsewhere or deferred</td></tr>
     </tbody>
   </table>
 
@@ -161,10 +186,11 @@ sift review --since 2026-03-01 --until 2026-03-07  # custom range</code></pre>
   <p>The review includes:</p>
   <ul>
     <li><strong>Completed</strong> — tasks with a done date in the review period</li>
-    <li><strong>Created &amp; still open</strong> — tasks with a created date in the period</li>
+    <li><strong>Created &amp; still open</strong> — tasks with a created date in the period that are still actionable</li>
     <li><strong>Project notes</strong> — changelog entries from project files</li>
     <li><strong>New notes</strong> — non-task vault files (meetings, weblinks, etc.) with a <code>created</code> or <code>date</code> frontmatter field in the period, grouped by type</li>
-    <li><strong>Stale</strong> — open tasks with no due or scheduled date (may need triage)</li>
+    <li><strong>Deferred</strong> — tasks marked <code>on_hold</code> or <code>moved</code> that were created during the period</li>
+    <li><strong>Stale</strong> — actionable tasks with no due or scheduled date (may need triage)</li>
     <li><strong>Upcoming</strong> — tasks due in the 7 days after the review period</li>
   </ul>
 

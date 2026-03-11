@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { glob } from "glob";
 import { parseContent } from "./parser.js";
 import { localToday, addDays, previousDayOfWeek } from "./dates.js";
-import { type Task, type TaskFilter, type SiftConfig, type Priority, type ChangelogEntry, type VaultFile, type ReviewSummary } from "./types.js";
+import { type Task, type TaskFilter, type SiftConfig, type Priority, type ChangelogEntry, type VaultFile, type ReviewSummary, ACTIONABLE_STATUSES } from "./types.js";
 
 /**
  * Priority ordering for comparison. Lower number = higher priority.
@@ -83,7 +83,8 @@ export function applyFilter(tasks: Task[], filter?: TaskFilter): Task[] {
   let result = tasks;
 
   if (filter.status) {
-    result = result.filter((t) => t.status === filter.status);
+    const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+    result = result.filter((t) => statuses.includes(t.status));
   }
 
   if (filter.minPriority) {
@@ -155,7 +156,7 @@ export async function getNextTasks(
   config: SiftConfig,
   count: number = 10,
 ): Promise<Task[]> {
-  const tasks = await scanTasks(config, { status: "open" });
+  const tasks = await scanTasks(config, { status: ACTIONABLE_STATUSES });
   const sorted = sortByUrgency(tasks);
   return sorted.slice(0, count);
 }
@@ -165,7 +166,7 @@ export async function getNextTasks(
  */
 export async function getOverdueTasks(config: SiftConfig): Promise<Task[]> {
   const today = localToday();
-  const tasks = await scanTasks(config, { status: "open" });
+  const tasks = await scanTasks(config, { status: ACTIONABLE_STATUSES });
   return sortByUrgency(tasks.filter((t) => t.due !== null && t.due < today));
 }
 
@@ -174,7 +175,7 @@ export async function getOverdueTasks(config: SiftConfig): Promise<Task[]> {
  */
 export async function getDueToday(config: SiftConfig): Promise<Task[]> {
   const today = localToday();
-  const tasks = await scanTasks(config, { status: "open" });
+  const tasks = await scanTasks(config, { status: ACTIONABLE_STATUSES });
   return sortByUrgency(tasks.filter((t) => t.due === today));
 }
 
@@ -360,25 +361,36 @@ export async function getReviewSummary(
     ),
   );
 
-  // Tasks created during the period that are still open
+  // Tasks created during the period that are still actionable
   const created = sortByUrgency(
     allTasks.filter(
       (t) =>
-        t.status === "open" &&
+        ACTIONABLE_STATUSES.includes(t.status) &&
         t.created !== null &&
         t.created >= effectiveSince &&
         t.created <= effectiveUntil,
     ),
   );
 
-  // Stale tasks: open, no due or scheduled date, created before the period
+  // Stale tasks: actionable, no due or scheduled date, created before the period
   const stale = sortByUrgency(
     allTasks.filter(
       (t) =>
-        t.status === "open" &&
+        ACTIONABLE_STATUSES.includes(t.status) &&
         t.due === null &&
         t.scheduled === null &&
         (t.created === null || t.created < effectiveSince),
+    ),
+  );
+
+  // Deferred tasks: moved or on_hold, created during the period
+  const deferred = sortByUrgency(
+    allTasks.filter(
+      (t) =>
+        (t.status === "moved" || t.status === "on_hold") &&
+        t.created !== null &&
+        t.created >= effectiveSince &&
+        t.created <= effectiveUntil,
     ),
   );
 
@@ -393,7 +405,7 @@ export async function getReviewSummary(
   const upcoming = sortByUrgency(
     allTasks.filter(
       (t) =>
-        t.status === "open" &&
+        ACTIONABLE_STATUSES.includes(t.status) &&
         t.due !== null &&
         t.due > effectiveUntil &&
         t.due <= upcomingEnd,
@@ -408,6 +420,7 @@ export async function getReviewSummary(
     stale,
     changelog,
     newFiles,
+    deferred,
     upcoming,
   };
 }

@@ -15,10 +15,19 @@ export type Priority = "highest" | "high" | "medium" | "low" | "lowest" | "none"
  * Represents the completion status of a task.
  * Maps to Obsidian's checkbox states:
  * - `- [ ]` = "open"
+ * - `- [/]` = "in_progress"
  * - `- [x]` = "done"
  * - `- [-]` = "cancelled"
+ * - `- [h]` = "on_hold"
+ * - `- [>]` = "moved"
  */
-export type TaskStatus = "open" | "done" | "cancelled";
+export type TaskStatus = "open" | "in_progress" | "done" | "cancelled" | "on_hold" | "moved";
+
+/**
+ * Statuses considered "actionable" — tasks you're actively working on or intend to do.
+ * Used as the default filter for list/next/summary views.
+ */
+export const ACTIONABLE_STATUSES: TaskStatus[] = ["open", "in_progress"];
 
 /**
  * A fully parsed Obsidian Task with all metadata extracted.
@@ -127,8 +136,8 @@ export interface ProjectInfo {
  * Options for filtering tasks when querying.
  */
 export interface TaskFilter {
-  /** Only return tasks with this status */
-  status?: TaskStatus;
+  /** Only return tasks with this status (or any of these statuses) */
+  status?: TaskStatus | TaskStatus[];
 
   /** Only return tasks with this priority or higher */
   minPriority?: Priority;
@@ -212,6 +221,9 @@ export interface ReviewSummary {
 
   /** Non-task vault files (meetings, weblinks, etc.) dated within the period */
   newFiles: VaultFile[];
+
+  /** Tasks marked as moved or on_hold that were created during the period */
+  deferred: Task[];
 
   /** Tasks due in the 7 days after the review period */
   upcoming: Task[];

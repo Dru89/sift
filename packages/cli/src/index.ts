@@ -16,6 +16,7 @@ import {
   addNote,
   completeTask,
   findTasks,
+  markTaskStatus,
   listProjects,
   findProject,
   createProject,
@@ -24,6 +25,7 @@ import {
   addDays,
   previousDayOfWeek,
   type Priority,
+  type TaskStatus,
   type SiftConfig,
 } from "@sift/core";
 import { formatTask, formatTaskList, formatSummary } from "./format.js";
@@ -364,6 +366,76 @@ projectCmd
     }
   });
 
+// ─── sift mark ───────────────────────────────────────────────
+program
+  .command("mark [search...]")
+  .description("Mark a task with a status (in_progress, on_hold, moved, cancelled, open, done)")
+  .option("--status <status>", "New status: open, in_progress, on_hold, moved, cancelled, done")
+  .option("--file <path>", "File path (relative to vault root) for precise targeting")
+  .option("--line <number>", "Line number for precise targeting")
+  .action(async (searchParts: string[], opts) => {
+    const config = await resolveConfig();
+
+    if (!opts.status) {
+      console.error(chalk.red("Error: ") + "Provide --status (open, in_progress, on_hold, moved, cancelled, done)");
+      process.exit(1);
+    }
+
+    const validStatuses = ["open", "in_progress", "on_hold", "moved", "cancelled", "done"];
+    if (!validStatuses.includes(opts.status)) {
+      console.error(chalk.red("Invalid status: ") + opts.status);
+      console.error(chalk.dim("Valid values: " + validStatuses.join(", ")));
+      process.exit(1);
+    }
+
+    const newStatus = opts.status as TaskStatus;
+
+    // Precise mode: --file and --line
+    if (opts.file && opts.line) {
+      const lineNum = parseInt(opts.line, 10);
+      if (isNaN(lineNum) || lineNum < 1) {
+        console.error(chalk.red("Invalid line number: ") + opts.line);
+        process.exit(1);
+      }
+
+      try {
+        const description = await markTaskStatus(config, opts.file, lineNum, newStatus);
+        console.log(chalk.green("✓") + ` Marked as ${newStatus}: ` + description);
+      } catch (err: any) {
+        console.error(chalk.red("Error: ") + err.message);
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Search mode
+    if (!searchParts || searchParts.length === 0) {
+      console.error(chalk.red("Provide a search term, or use --file and --line for precise targeting."));
+      process.exit(1);
+    }
+
+    const search = searchParts.join(" ");
+    const matches = await findTasks(config, search);
+
+    if (matches.length === 0) {
+      console.log(chalk.yellow("No actionable tasks matching: ") + search);
+      return;
+    }
+
+    if (matches.length > 1) {
+      console.log(chalk.yellow(`Found ${matches.length} matching tasks:`));
+      for (const task of matches) {
+        console.log("  " + formatTask(task, { showFile: true }));
+      }
+      console.log(chalk.dim("\nBe more specific, or use --file and --line for precise targeting."));
+      return;
+    }
+
+    const task = matches[0];
+    await markTaskStatus(config, task.filePath, task.line, newStatus);
+    console.log(chalk.green("✓") + ` Marked as ${newStatus}: ` + task.description);
+  });
+
 // ─── sift review ─────────────────────────────────────────────
 program
   .command("review")
@@ -444,6 +516,16 @@ program
       console.log();
     }
 
+    // Deferred (moved or on_hold during the period)
+    if (review.deferred.length > 0) {
+      console.log(chalk.bold.yellow(`⏸  Deferred (${review.deferred.length})`));
+      for (const task of review.deferred) {
+        const statusLabel = task.status === "on_hold" ? "on hold" : "moved";
+        console.log("  " + formatTask(task, { showFile: true }) + chalk.dim(`  [${statusLabel}]`));
+      }
+      console.log();
+    }
+
     // Stale
     if (review.stale.length > 0) {
       console.log(chalk.bold.yellow(`⚠️  Stale — no due date, no schedule (${review.stale.length})`));
@@ -505,10 +587,12 @@ program
     const today = localToday();
 
     const allTasks = await scanTasks(config);
+    const actionableTasks = allTasks.filter((t) => t.status === "open" || t.status === "in_progress");
+    const inProgressTasks = allTasks.filter((t) => t.status === "in_progress");
     const openTasks = allTasks.filter((t) => t.status === "open");
-    const overdue = openTasks.filter((t) => t.due !== null && t.due < today);
-    const dueToday = openTasks.filter((t) => t.due === today);
-    const highPriority = openTasks.filter((t) => t.priority === "highest" || t.priority === "high");
+    const overdue = actionableTasks.filter((t) => t.due !== null && t.due < today);
+    const dueToday = actionableTasks.filter((t) => t.due === today);
+    const highPriority = actionableTasks.filter((t) => t.priority === "highest" || t.priority === "high");
 
     console.log(chalk.bold("📋 Sift Summary"));
     console.log();
@@ -522,6 +606,11 @@ program
 
     if (dueToday.length > 0) {
       console.log(formatTaskList(sortByUrgency(dueToday), "📅 Due Today"));
+      console.log();
+    }
+
+    if (inProgressTasks.length > 0) {
+      console.log(formatTaskList(sortByUrgency(inProgressTasks), "◐ In Progress"));
       console.log();
     }
 

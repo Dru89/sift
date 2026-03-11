@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatTask } from "./parser.js";
+import { formatTask, statusToChar } from "./parser.js";
 import { localToday, addDays } from "./dates.js";
 import { scanTasks } from "./scanner.js";
 import { findProject } from "./projects.js";
-import { type Task, type TaskStatus, type Priority, type SiftConfig } from "./types.js";
+import { type Task, type TaskStatus, type Priority, type SiftConfig, ACTIONABLE_STATUSES } from "./types.js";
 
 /**
  * Options for creating a new task.
@@ -160,7 +160,7 @@ export async function findTasks(
   config: SiftConfig,
   search: string,
 ): Promise<Task[]> {
-  const tasks = await scanTasks(config, { status: "open" });
+  const tasks = await scanTasks(config, { status: ACTIONABLE_STATUSES });
   const searchLower = search.toLowerCase();
   return tasks.filter((t) =>
     t.description.toLowerCase().includes(searchLower),
@@ -206,11 +206,11 @@ export async function completeTask(
     throw new Error(`Line ${lineNum} out of range in ${filePath}`);
   }
 
-  // Verify the line is actually an open task
+  // Verify the line is actually a task checkbox
   const targetLine = lines[lineIdx];
-  if (!targetLine.match(/- \[[ ]\]/)) {
+  if (!targetLine.match(/- \[.\]/)) {
     throw new Error(
-      `Line ${lineNum} in ${filePath} is not an open task: "${targetLine.trim()}"`,
+      `Line ${lineNum} in ${filePath} is not a task: "${targetLine.trim()}"`,
     );
   }
 
@@ -218,7 +218,7 @@ export async function completeTask(
 
   // Replace the checkbox and add done date
   let updatedLine = targetLine;
-  updatedLine = updatedLine.replace(/- \[[ ]\]/, "- [x]");
+  updatedLine = updatedLine.replace(/- \[.\]/, "- [x]");
 
   // Add done date if not already present
   if (!updatedLine.includes("✅")) {
@@ -229,7 +229,53 @@ export async function completeTask(
   await fs.writeFile(fullPath, lines.join("\n"), "utf-8");
 
   // Extract a description for confirmation
-  const descMatch = targetLine.match(/- \[[ ]\]\s+(.*)/);
+  const descMatch = targetLine.match(/- \[.\]\s+(.*)/);
+  return descMatch ? descMatch[1].trim() : targetLine.trim();
+}
+
+/**
+ * Mark a task with any status by updating its checkbox in the file.
+ *
+ * @param config - The sift configuration
+ * @param filePath - File path (relative to vault root)
+ * @param lineNum - The 1-indexed line number
+ * @param status - The new task status to set
+ * @returns The description of the updated task
+ */
+export async function markTaskStatus(
+  config: SiftConfig,
+  filePath: string,
+  lineNum: number,
+  status: TaskStatus,
+): Promise<string> {
+  const fullPath = path.join(config.vaultPath, filePath);
+  const content = await fs.readFile(fullPath, "utf-8");
+  const lines = content.split("\n");
+
+  const lineIdx = lineNum - 1;
+  if (lineIdx < 0 || lineIdx >= lines.length) {
+    throw new Error(`Line ${lineNum} out of range in ${filePath}`);
+  }
+
+  const targetLine = lines[lineIdx];
+  if (!targetLine.match(/- \[.\]/)) {
+    throw new Error(
+      `Line ${lineNum} in ${filePath} is not a task: "${targetLine.trim()}"`,
+    );
+  }
+
+  const newChar = statusToChar(status);
+  let updatedLine = targetLine.replace(/- \[.\]/, `- [${newChar}]`);
+
+  // When completing, add done date if not already present
+  if (status === "done" && !updatedLine.includes("✅")) {
+    updatedLine = updatedLine.trimEnd() + ` ✅ ${localToday()}`;
+  }
+
+  lines[lineIdx] = updatedLine;
+  await fs.writeFile(fullPath, lines.join("\n"), "utf-8");
+
+  const descMatch = targetLine.match(/- \[.\]\s+(.*)/);
   return descMatch ? descMatch[1].trim() : targetLine.trim();
 }
 

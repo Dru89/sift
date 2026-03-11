@@ -18,7 +18,13 @@ const PRIORITY_DISPLAY: Record<Priority, { label: string; color: (s: string) => 
  */
 export function formatTask(task: Task, options?: { showFile?: boolean }): string {
   const priority = PRIORITY_DISPLAY[task.priority];
-  const statusIcon = task.status === "done" ? chalk.green("✓") : task.status === "cancelled" ? chalk.red("✗") : chalk.dim("○");
+  const statusIcon =
+    task.status === "done" ? chalk.green("✓") :
+    task.status === "cancelled" ? chalk.red("✗") :
+    task.status === "in_progress" ? chalk.cyan("◐") :
+    task.status === "on_hold" ? chalk.yellow("⏸") :
+    task.status === "moved" ? chalk.dim("→") :
+    chalk.dim("○");
 
   let line = `${statusIcon} ${priority.label} ${priority.color(task.description)}`;
 
@@ -64,15 +70,20 @@ export function formatTaskList(tasks: Task[], header: string, options?: { showFi
  */
 export function formatSummary(tasks: Task[]): string {
   const open = tasks.filter((t) => t.status === "open").length;
+  const inProgress = tasks.filter((t) => t.status === "in_progress").length;
   const done = tasks.filter((t) => t.status === "done").length;
   const today = localToday();
-  const overdue = tasks.filter((t) => t.status === "open" && t.due !== null && t.due < today).length;
-  const dueToday = tasks.filter((t) => t.status === "open" && t.due === today).length;
+  const actionable = (t: Task) => t.status === "open" || t.status === "in_progress";
+  const overdue = tasks.filter((t) => actionable(t) && t.due !== null && t.due < today).length;
+  const dueToday = tasks.filter((t) => actionable(t) && t.due === today).length;
 
   const parts: string[] = [
     `${chalk.bold(String(open))} open`,
-    `${chalk.green(String(done))} done`,
   ];
+  if (inProgress > 0) {
+    parts.push(`${chalk.cyan(String(inProgress))} in progress`);
+  }
+  parts.push(`${chalk.green(String(done))} done`);
 
   if (overdue > 0) {
     parts.push(`${chalk.red(String(overdue))} overdue`);

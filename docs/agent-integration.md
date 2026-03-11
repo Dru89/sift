@@ -14,8 +14,9 @@ All integrations provide these core tools:
 - `sift_next` - Get priority tasks
 - `sift_summary` - Quick status overview (includes project list)
 - `sift_add` - Add new tasks (to daily note or project)
-- `sift_find` - Search tasks without modifying them
+- `sift_find` - Search actionable tasks without modifying them
 - `sift_done` - Complete tasks (by search or precise file:line)
+- `sift_mark` / `sift_mark` - Mark a task with any status (`in_progress`, `on_hold`, `moved`, `cancelled`, `open`, `done`)
 - `sift_projects` - List vault projects (supports `--tag` filter)
 - `sift_project_create` / `sift_projectCreate` - Create a new project
 - `sift_project_path` / `sift_projectPath` - Get a project's file path
@@ -133,8 +134,9 @@ The tools file (`sift.ts`) defines OpenCode custom tools that call the `sift` CL
 | `sift_next` | Get the most important tasks sorted by urgency |
 | `sift_summary` | Quick overview of task status + active projects |
 | `sift_add` | Add a new task to today's daily note or a project |
-| `sift_find` | Search tasks without modifying them |
+| `sift_find` | Search actionable tasks without modifying them |
 | `sift_done` | Mark a task as complete (by search or by file:line) |
+| `sift_mark` | Mark a task with any status: open, in_progress, on_hold, moved, cancelled, done |
 | `sift_projects` | List all projects in the vault (optional `tag` filter) |
 | `sift_projectCreate` | Create a new project from template |
 | `sift_projectPath` | Get the file path for a project |
@@ -157,6 +159,7 @@ Once set up, you can use natural language with your AI assistant:
 - "Add a task to review the PR by Friday"
 - "Add a task to the MP3 Parser project to design the API"
 - "Mark the architecture doc task as done"
+- "I'm starting work on the auth refactor" (agent marks it in_progress)
 - "Show me my overdue tasks"
 - "What projects do I have?"
 - "Add a note to MP3 Parser that we decided to use ID3v2.4"

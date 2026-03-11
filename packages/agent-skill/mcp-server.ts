@@ -279,6 +279,37 @@ const tools: Tool[] = [
     },
   },
   {
+    name: "sift_mark",
+    description:
+      "Mark a task with any status (in_progress, on_hold, moved, cancelled, open, done). Supports two modes: (1) search mode — pass 'search' to find and mark by description, or (2) precise mode — pass 'file' and 'line'. Prefer precise mode after using sift_find.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["open", "in_progress", "on_hold", "moved", "cancelled", "done"],
+          description: "The new status to set on the task",
+        },
+        search: {
+          type: "string",
+          description:
+            "Text to search for in task descriptions. Use this OR file+line, not both.",
+        },
+        file: {
+          type: "string",
+          description:
+            "File path (relative to vault root) for precise targeting. Must be used with 'line'.",
+        },
+        line: {
+          type: "number",
+          description:
+            "Line number (1-indexed) for precise targeting. Must be used with 'file'.",
+        },
+      },
+      required: ["status"],
+    },
+  },
+  {
     name: "sift_review",
     description:
       "Generate a review summary for a time period. Shows tasks completed, tasks created (still open), stale tasks (no dates), project changelog entries, and upcoming tasks. Defaults to since last Friday.",
@@ -457,6 +488,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.timeframe) cliArgs.push("--timeframe", args.timeframe as string);
         if (args?.tags && Array.isArray(args.tags) && args.tags.length > 0) {
           cliArgs.push("--tags", ...(args.tags as string[]));
+        }
+        const result = runSift(cliArgs);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "sift_mark": {
+        const cliArgs = ["mark", "--status", args?.status as string];
+        if (args?.file && args?.line) {
+          cliArgs.push("--file", args.file as string, "--line", String(args.line));
+        } else if (args?.search) {
+          cliArgs.push(args.search as string);
+        } else {
+          return {
+            content: [{ type: "text", text: "Error: provide either 'search' or both 'file' and 'line'" }],
+            isError: true,
+          };
         }
         const result = runSift(cliArgs);
         return {

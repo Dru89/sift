@@ -14,7 +14,7 @@ Sift reads your Obsidian vault directly, parses tasks in the [emoji format](http
 
 ## Features
 
-- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, `sift note`, `sift review`, and more
+- **CLI** -- `sift summary`, `sift next`, `sift add`, `sift done`, `sift mark`, `sift note`, `sift review`, and more
 - **Raycast extension** -- search tasks, view priorities, add tasks with a form
 - **AI agent integration** -- Works with Claude Code, Claude Desktop, and OpenCode for conversational task management
 - **Shared core library** -- all interfaces use the same `@sift/core` package, so they always behave consistently
@@ -65,6 +65,10 @@ sift add "Design the API" --project "MP3 Parser" --priority high
 
 # Mark something done
 sift done "architecture doc"
+
+# Mark something in progress or on hold
+sift mark "architecture doc" --status in_progress
+sift mark "waiting on client" --status on_hold
 
 # Add a note to today's daily note
 sift note "Had a great meeting about the roadmap"

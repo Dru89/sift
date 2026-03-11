@@ -295,6 +295,39 @@ export const projectSet = tool({
   },
 });
 
+export const mark = tool({
+  description:
+    "Mark a task with any status (in_progress, on_hold, moved, cancelled, open, done). Supports two modes: (1) search mode — pass 'search' to find and mark by description, or (2) precise mode — pass 'file' and 'line'. Prefer precise mode after using sift_find.",
+  args: {
+    status: tool.schema
+      .enum(["open", "in_progress", "on_hold", "moved", "cancelled", "done"])
+      .describe("The new status to set on the task"),
+    search: tool.schema
+      .string()
+      .optional()
+      .describe("Text to search for in task descriptions. Use this OR file+line, not both."),
+    file: tool.schema
+      .string()
+      .optional()
+      .describe("File path (relative to vault root) for precise targeting. Must be used with 'line'."),
+    line: tool.schema
+      .number()
+      .optional()
+      .describe("Line number (1-indexed) for precise targeting. Must be used with 'file'."),
+  },
+  async execute(args) {
+    const cliArgs = ["mark", "--status", args.status];
+    if (args.file && args.line) {
+      cliArgs.push("--file", args.file, "--line", String(args.line));
+    } else if (args.search) {
+      cliArgs.push(args.search);
+    } else {
+      return "Error: provide either 'search' or both 'file' and 'line'";
+    }
+    return runSift(cliArgs);
+  },
+});
+
 export const review = tool({
   description:
     "Generate a review summary for a time period. Shows tasks completed, tasks created (still open), stale tasks (no dates), project changelog entries, and upcoming tasks. Defaults to since last Friday.",

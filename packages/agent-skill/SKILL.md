@@ -15,8 +15,9 @@ The following custom tools are available for interacting with the user's tasks:
 - **`sift_next`** - Get the most important tasks to work on right now (sorted by priority + urgency)
 - **`sift_summary`** - Quick overview: open count, overdue, due today, high priority, and up next
 - **`sift_add`** - Add a new task to today's daily note, or to a specific project
-- **`sift_find`** - Search for open tasks without modifying them (use before `sift_done`)
+- **`sift_find`** - Search for actionable tasks without modifying them (use before `sift_done` or `sift_mark`)
 - **`sift_done`** - Mark a task as complete (by search or by precise file+line)
+- **`sift_mark`** - Mark a task with any status: `in_progress`, `on_hold`, `moved`, `cancelled`, `open`, or `done` (use `sift_find` first)
 - **`sift_projects`** - List all projects in the vault (with status, tags, created date)
 - **`sift_projectCreate`** - Create a new project from template
 - **`sift_projectPath`** - Get the vault-relative file path for a project (for reading/editing)
@@ -24,10 +25,27 @@ The following custom tools are available for interacting with the user's tasks:
 - **`sift_addNote`** - Add a freeform note to a daily note or project file
 - **`sift_review`** - Generate a review summary (completed, created, stale, changelog, upcoming)
 
+## Task statuses
+
+Tasks use Obsidian checkbox characters for status:
+
+| Checkbox | Status | Meaning |
+|----------|--------|---------|
+| `- [ ]` | `open` | Not yet started |
+| `- [/]` | `in_progress` | Actively being worked on |
+| `- [x]` | `done` | Completed (gets a `✅` date) |
+| `- [-]` | `cancelled` | Cancelled / won't do |
+| `- [h]` | `on_hold` | Paused, waiting on something |
+| `- [>]` | `moved` | Moved elsewhere or deferred |
+
+The **actionable** statuses are `open` and `in_progress` — these appear in `sift list`, `sift next`, `sift find`, and `sift summary`.
+
+Use `sift_mark` to change a task's status. Use `sift_done` as a shortcut for marking complete.
+
 ## Task format
 
 Tasks use the Obsidian Tasks emoji format:
-- `- [ ]` / `- [x]` for open/done
+- See status table above for checkbox formats
 - `⏫` highest priority, `🔼` high, `🔽` low
 - `⏳ YYYY-MM-DD` scheduled date
 - `📅 YYYY-MM-DD` due date
@@ -41,7 +59,7 @@ Tasks use the Obsidian Tasks emoji format:
 - User asks about overdue or upcoming tasks
 - User says "add a task" or "remind me to..." or "I need to..."
 - User asks about their priorities or task status
-- User wants to mark something as done
+- User wants to mark something as done, in progress, or deferred
 - User mentions a project or wants to create one
 
 ## Guidelines
@@ -79,21 +97,29 @@ When the user asks you to add a task, consider whether it belongs to an existing
 
 If the task doesn't feel like it belongs to any project, add it to the daily note as usual. Don't over-suggest projects -- only suggest when there's a clear connection.
 
-## Completing tasks safely
+## Changing task status
 
-When the user wants to mark a task as done:
+When the user wants to mark a task as done, in progress, on hold, etc.:
 
 1. **Always use `sift_find` first** to search for the task and preview the matches.
-2. **Show the user the exact task** you're about to complete (description, file, line number) and confirm before proceeding.
-3. **Use precise mode when possible.** After confirming with the user, pass `file` and `line` to `sift_done` instead of `search`. This prevents any ambiguity.
+2. **Show the user the exact task** you're about to update (description, file, line number) and confirm before proceeding.
+3. **Use precise mode when possible.** After confirming with the user, pass `file` and `line` to `sift_done` or `sift_mark` instead of `search`. This prevents any ambiguity.
 4. **If multiple tasks match**, show all matches and ask the user to clarify which one they mean.
+5. **Use `sift_done` as a shortcut** when marking complete; use `sift_mark` for any other status change.
 
-Example flow:
+Example flow (marking done):
 - User: "mark the MP3 parser task as done"
 - You: call `sift_find` with search "MP3 parser"
 - You: "I found this task: **Research MP3 header format** in `Projects/MP3 Parser.md` line 15. Mark it as done?"
 - User: "yes"
 - You: call `sift_done` with file="Projects/MP3 Parser.md" and line=15
+
+Example flow (marking in progress):
+- User: "I'm starting work on the auth refactor"
+- You: call `sift_find` with search "auth refactor"
+- You: "Found: **Refactor auth middleware** in `Projects/Backend.md` line 22. Mark it as in progress?"
+- User: "yes"
+- You: call `sift_mark` with file="Projects/Backend.md", line=22, status="in_progress"
 
 ## Creating projects
 
@@ -167,9 +193,11 @@ Use `sift_review` to generate a review summary for any time period. It defaults 
 
 **What the review shows:**
 - **Completed tasks** -- tasks with a `✅` date in the review period
-- **Created & still open** -- tasks with a `➕` date in the period that haven't been completed yet
+- **Created & still open** -- tasks with a `➕` date in the period that are still actionable
 - **Project notes** -- changelog entries from project files during the period
-- **Stale tasks** -- open tasks with no due or scheduled date (may need triage)
+- **New notes** -- non-task vault files (meetings, weblinks, etc.) dated within the period
+- **Deferred** -- tasks marked `on_hold` or `moved` that were created during the period
+- **Stale tasks** -- actionable tasks with no due or scheduled date (may need triage)
 - **Upcoming** -- tasks due in the 7 days after the review period
 
 **Parameters:**
