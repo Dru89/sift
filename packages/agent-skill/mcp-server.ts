@@ -240,6 +240,11 @@ const tools: Tool[] = [
           description:
             "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
         },
+        changelogSummary: {
+          type: "string",
+          description:
+            "A short one-liner for the changelog entry (e.g. 'Decided to use ID3v2.4 format'). Always provide this when adding a note to a project — do not rely on the auto-generated default.",
+        },
       },
       required: ["content"],
     },
@@ -438,6 +443,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cliArgs.push("--project", args.project as string);
         if (args?.heading)
           cliArgs.push("--heading", args.heading as string);
+        if (args?.changelogSummary)
+          cliArgs.push("--changelog-summary", args.changelogSummary as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],

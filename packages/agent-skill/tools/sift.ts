@@ -252,11 +252,18 @@ export const addNote = tool({
       .describe(
         "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
       ),
+    changelogSummary: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "A short one-liner for the changelog entry (e.g. 'Decided to use ID3v2.4 format'). Always provide this when adding a note to a project — do not rely on the auto-generated default.",
+      ),
   },
   async execute(args) {
     const cliArgs = ["note", args.content];
     if (args.project) cliArgs.push("--project", args.project);
     if (args.heading) cliArgs.push("--heading", args.heading);
+    if (args.changelogSummary) cliArgs.push("--changelog-summary", args.changelogSummary);
     return runSift(cliArgs);
   },
 });
