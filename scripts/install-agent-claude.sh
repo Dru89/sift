@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install sift MCP server for Claude Code and Claude Desktop.
+# Install sift MCP server and skill for Claude Code and Claude Desktop.
 #
-# This script automatically configures the sift MCP server in:
-# - Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
-# - Claude Code:    ~/.claude.json (global MCP server config)
+# This script automatically configures:
+# - MCP server in Claude Desktop: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+# - MCP server in Claude Code:    ~/.claude.json (global MCP server config)
+# - Skill for Claude Code:        ~/.claude/skills/sift/SKILL.md
 #
 # Run from the repo root:
 #   ./scripts/install-agent-claude.sh
@@ -14,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MCP_SERVER_PATH="$REPO_ROOT/packages/agent-skill/dist/mcp-server.js"
 
-echo "Installing sift MCP server for Claude Code and Claude Desktop..."
+echo "Installing sift MCP server and skill for Claude Code and Claude Desktop..."
 
 # Check if MCP server is built
 if [ ! -f "$MCP_SERVER_PATH" ]; then
@@ -107,6 +108,15 @@ node -e "
 "
 
 echo "  Claude Code:    $CLAUDE_CODE_CONFIG"
+
+# ── Claude Code Skill ──────────────────────────────────────────────────────────
+
+SKILL_SRC="$REPO_ROOT/packages/agent-skill/SKILL.md"
+SKILL_DEST="$HOME/.claude/skills/sift/SKILL.md"
+
+mkdir -p "$(dirname "$SKILL_DEST")"
+cp "$SKILL_SRC" "$SKILL_DEST"
+echo "  Skill:          $SKILL_DEST"
 
 echo ""
 echo "Done. Restart Claude Desktop and/or Claude Code to pick up the changes."
