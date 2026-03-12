@@ -13,13 +13,28 @@ import { execFileSync } from "child_process";
  * 1. SIFT_CLI_PATH env var (absolute path to the built CLI entry point)
  * 2. "sift" on PATH (if globally linked via `npm link`)
  *
- * The install script sets SIFT_CLI_PATH, but if sift is on your PATH
- * it will just work without any env var.
+ * In both cases, the CLI is executed via process.execPath (the same Node
+ * binary running this MCP server) to avoid shebang-based PATH resolution
+ * picking up an incompatible Node version in restricted environments
+ * like Claude Desktop.
  */
 function getSiftCommand(): { command: string; prefixArgs: string[] } {
   if (process.env.SIFT_CLI_PATH) {
-    return { command: "node", prefixArgs: [process.env.SIFT_CLI_PATH] };
+    return { command: process.execPath, prefixArgs: [process.env.SIFT_CLI_PATH] };
   }
+
+  // Resolve "sift" on PATH to its real file path, then run it via
+  // process.execPath so we bypass the #!/usr/bin/env node shebang.
+  try {
+    const which = execFileSync("which", ["sift"], { encoding: "utf-8" }).trim();
+    if (which) {
+      return { command: process.execPath, prefixArgs: [which] };
+    }
+  } catch {
+    // fall through
+  }
+
+  // Last resort: hope "sift" works directly
   return { command: "sift", prefixArgs: [] };
 }
 
