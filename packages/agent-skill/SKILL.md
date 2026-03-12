@@ -19,10 +19,10 @@ The following custom tools are available for interacting with the user's tasks:
 - **`sift_done`** - Mark a task as complete (requires file+line from `sift_find`; confirm with user first)
 - **`sift_mark`** - Mark a task with any status: `in_progress`, `on_hold`, `moved`, `cancelled`, `open`, or `done` (use `sift_find` first)
 - **`sift_projects`** - List all projects in the vault (with status, tags, created date)
-- **`sift_projectCreate`** - Create a new project from template
-- **`sift_projectPath`** - Get the vault-relative file path for a project (for reading/editing)
+- **`sift_project_create`** - Create a new project from template
+- **`sift_project_path`** - Get the vault-relative file path for a project (for reading/editing)
 - **`sift_project_set`** - Update project frontmatter: `--status` and/or `--timeframe`
-- **`sift_addNote`** - Add a freeform note to a daily note or project file
+- **`sift_note`** - Add a freeform note to a daily note or project file
 - **`sift_review`** - Generate a review summary (completed, created, stale, changelog, upcoming)
 
 ## Task statuses
@@ -123,7 +123,7 @@ Example flow (marking in progress):
 
 ## Creating projects
 
-When the user wants to create a new project, use `sift_projectCreate` with the project name. This creates a new file from the vault's project template in the Projects folder, with `created` set to today's date automatically.
+When the user wants to create a new project, use `sift_project_create` with the project name. This creates a new file from the vault's project template in the Projects folder, with `created` set to today's date automatically.
 
 ## Project statuses
 
@@ -146,7 +146,7 @@ In `sift summary` and `sift projects`, `active` and `planning` projects appear a
 
 ## Adding notes to projects and daily notes
 
-Use `sift_addNote` to add freeform content (not tasks) to a project or daily note. This is useful for:
+Use `sift_note` to add freeform content (not tasks) to a project or daily note. This is useful for:
 - Recording decisions, observations, or meeting notes
 - Updating a project's notes or overview section
 - Logging journal entries in the daily note
@@ -157,16 +157,18 @@ Use `sift_addNote` to add freeform content (not tasks) to a project or daily not
 - For projects: notes go under `## Notes`
 - Use the `heading` parameter to target a different section (e.g., `"## Overview"`, `"## Goals"`)
 
-**When to use `sift_addNote` vs editing directly:**
-- Use `sift_addNote` for quick additions: a paragraph, a few bullet points, a brief update
-- For larger edits (rewriting a section, restructuring content), use `sift_projectPath` to get the file path, then read and edit the file directly
+**Section targeting:** When the user refers to a specific section by name — for example, "add that to my accomplishments," "put this in the goals section," or "log this under meeting notes" — map their request to the `heading` parameter. Use `## ` prefix with the section name (e.g., `heading: "## Accomplishments"`). If the heading doesn't exist in the file, sift will create it — so if you're not confident the heading already exists, confirm with the user before adding the note (e.g., "I don't see a '## Meeting Notes' section in today's note. Should I create it?").
+
+**When to use `sift_note` vs editing directly:**
+- Use `sift_note` for quick additions: a paragraph, a few bullet points, a brief update
+- For larger edits (rewriting a section, restructuring content), use `sift_project_path` to get the file path, then read and edit the file directly
 
 ## Reading and editing project files
 
 When the user asks you to "check out" a project, look at project notes, or references a specific project by name, use the sift tools to find and read it:
 
 1. Use `sift_projects` to list all projects (to confirm the project name if needed)
-2. Use `sift_projectPath` to get the vault-relative file path for the project
+2. Use `sift_project_path` to get the vault-relative file path for the project
 3. Use `sift_summary` to get the vault path, then prepend it to the project path to read the file
 
 This lets you:
@@ -174,7 +176,7 @@ This lets you:
 - Make direct edits to any section of the project
 - Check what tasks, notes, or goals already exist
 
-The path returned by `sift_projectPath` is relative to the vault root. To get the absolute path for file operations, prepend the vault path from the sift configuration (visible in `sift_summary` output).
+The path returned by `sift_project_path` is relative to the vault root. To get the absolute path for file operations, prepend the vault path from the sift configuration (visible in `sift_summary` output).
 
 ## Date handling for new tasks
 
@@ -214,7 +216,7 @@ Use `sift_review` to generate a review summary for any time period. It defaults 
 
 ### Changelog tracking
 
-When you add a note to a project using `sift_addNote`, a changelog entry is automatically appended under a `## Changelog` heading in the project file. The changelog entry is a dated one-liner summarizing the note:
+When you add a note to a project using `sift_note`, a changelog entry is automatically appended under a `## Changelog` heading in the project file. The changelog entry is a dated one-liner summarizing the note:
 
 ```
 ## Changelog
@@ -226,7 +228,7 @@ This happens automatically -- you don't need to do anything special. The changel
 
 **Notes about changelog:**
 - Only notes create changelog entries, not tasks (tasks already have `➕` created dates)
-- Always pass a `changelogSummary` when calling `sift_addNote` — write a short, meaningful one-liner that captures the essence of the note (e.g. "Decided to use ID3v2.4 format", "Switched auth strategy to JWT"). Don't rely on the default, which just truncates the raw note content.
+- Always pass a `changelogSummary` when calling `sift_note` — write a short, meaningful one-liner that captures the essence of the note (e.g. "Decided to use ID3v2.4 format", "Switched auth strategy to JWT"). Don't rely on the default, which just truncates the raw note content.
 
 ## CWD project context
 

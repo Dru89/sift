@@ -234,7 +234,7 @@ const tools: Tool[] = [
         heading: {
           type: "string",
           description:
-            "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
+            "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes. Use this to target any heading in the file (e.g., '## Accomplishments', '## Meeting Notes', '## Goals'). If the heading doesn't exist, it will be created.",
         },
         changelogSummary: {
           type: "string",
@@ -380,7 +380,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_add": {
-        const cliArgs = ["add", args?.description as string];
+        const cliArgs = ["add"];
         if (args?.priority)
           cliArgs.push("--priority", args.priority as string);
         if (args?.due) cliArgs.push("--due", args.due as string);
@@ -391,6 +391,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cliArgs.push("--recurrence", args.recurrence as string);
         if (args?.project)
           cliArgs.push("--project", args.project as string);
+        cliArgs.push("--", args?.description as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],
@@ -398,7 +399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_find": {
-        const result = runSift(["find", args?.search as string, "--show-file"]);
+        const result = runSift(["find", "--show-file", "--", args?.search as string]);
         return {
           content: [{ type: "text", text: result }],
         };
@@ -436,27 +437,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_project_create": {
-        const result = runSift(["project", "create", args?.name as string]);
+        const result = runSift(["project", "create", "--", args?.name as string]);
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
       case "sift_project_path": {
-        const result = runSift(["project", "path", args?.name as string]);
+        const result = runSift(["project", "path", "--", args?.name as string]);
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
       case "sift_note": {
-        const cliArgs = ["note", args?.content as string];
+        const cliArgs = ["note"];
         if (args?.project)
           cliArgs.push("--project", args.project as string);
         if (args?.heading)
           cliArgs.push("--heading", args.heading as string);
         if (args?.changelogSummary)
           cliArgs.push("--changelog-summary", args.changelogSummary as string);
+        cliArgs.push("--", args?.content as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],
@@ -464,12 +466,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "sift_project_set": {
-        const cliArgs = ["project", "set", args?.name as string];
+        const cliArgs = ["project", "set"];
         if (args?.status) cliArgs.push("--status", args.status as string);
         if (args?.timeframe) cliArgs.push("--timeframe", args.timeframe as string);
         if (args?.tags && Array.isArray(args.tags) && args.tags.length > 0) {
           cliArgs.push("--tags", ...(args.tags as string[]));
         }
+        cliArgs.push("--", args?.name as string);
         const result = runSift(cliArgs);
         return {
           content: [{ type: "text", text: result }],

@@ -124,13 +124,14 @@ export const add = tool({
       ),
   },
   async execute(args) {
-    const cliArgs = ["add", args.description];
+    const cliArgs = ["add"];
     if (args.priority) cliArgs.push("--priority", args.priority);
     if (args.due) cliArgs.push("--due", args.due);
     if (args.scheduled) cliArgs.push("--scheduled", args.scheduled);
     if (args.start) cliArgs.push("--start", args.start);
     if (args.recurrence) cliArgs.push("--recurrence", args.recurrence);
     if (args.project) cliArgs.push("--project", args.project);
+    cliArgs.push("--", args.description);
     return runSift(cliArgs);
   },
 });
@@ -144,7 +145,7 @@ export const find = tool({
       .describe("Text to search for in task descriptions"),
   },
   async execute(args) {
-    return runSift(["find", args.search, "--show-file"]);
+    return runSift(["find", "--show-file", "--", args.search]);
   },
 });
 
@@ -185,7 +186,7 @@ export const done = tool({
 
     // Search mode
     if (args.search) {
-      return runSift(["done", args.search]);
+      return runSift(["done", "--", args.search]);
     }
 
     return "Error: provide either 'search' or both 'file' and 'line'";
@@ -208,7 +209,7 @@ export const projects = tool({
   },
 });
 
-export const projectCreate = tool({
+export const project_create = tool({
   description: "Create a new project from the vault's project template.",
   args: {
     name: tool.schema
@@ -216,11 +217,11 @@ export const projectCreate = tool({
       .describe("The project name (becomes the filename)"),
   },
   async execute(args) {
-    return runSift(["project", "create", args.name]);
+    return runSift(["project", "create", "--", args.name]);
   },
 });
 
-export const projectPath = tool({
+export const project_path = tool({
   description:
     "Get the vault-relative file path for a project. Useful when you need to read or edit a project file directly.",
   args: {
@@ -229,11 +230,11 @@ export const projectPath = tool({
       .describe("The project name to look up"),
   },
   async execute(args) {
-    return runSift(["project", "path", args.name]);
+    return runSift(["project", "path", "--", args.name]);
   },
 });
 
-export const addNote = tool({
+export const note = tool({
   description:
     "Add a freeform note to today's daily note or to a project. Use this for non-task content like observations, decisions, meeting notes, or project updates.",
   args: {
@@ -250,7 +251,7 @@ export const addNote = tool({
       .string()
       .optional()
       .describe(
-        "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes.",
+        "The heading to insert the note under. Defaults to '## Notes' for projects, '## Journal' for daily notes. Use this to target any heading in the file (e.g., '## Accomplishments', '## Meeting Notes', '## Goals'). If the heading doesn't exist, it will be created.",
       ),
     changelogSummary: tool.schema
       .string()
@@ -260,15 +261,16 @@ export const addNote = tool({
       ),
   },
   async execute(args) {
-    const cliArgs = ["note", args.content];
+    const cliArgs = ["note"];
     if (args.project) cliArgs.push("--project", args.project);
     if (args.heading) cliArgs.push("--heading", args.heading);
     if (args.changelogSummary) cliArgs.push("--changelog-summary", args.changelogSummary);
+    cliArgs.push("--", args.content);
     return runSift(cliArgs);
   },
 });
 
-export const projectSet = tool({
+export const project_set = tool({
   description:
     "Update frontmatter fields on a project (status, timeframe, tags). Use this to change a project's status (active, planning, someday, done), timeframe, or tags.",
   args: {
@@ -287,10 +289,11 @@ export const projectSet = tool({
       .describe("New tag list (replaces existing tags)"),
   },
   async execute(args) {
-    const cliArgs = ["project", "set", args.name];
+    const cliArgs = ["project", "set"];
     if (args.status) cliArgs.push("--status", args.status);
     if (args.timeframe) cliArgs.push("--timeframe", args.timeframe);
     if (args.tags && args.tags.length > 0) cliArgs.push("--tags", ...args.tags);
+    cliArgs.push("--", args.name);
     return runSift(cliArgs);
   },
 });
@@ -320,7 +323,7 @@ export const mark = tool({
     if (args.file && args.line) {
       cliArgs.push("--file", args.file, "--line", String(args.line));
     } else if (args.search) {
-      cliArgs.push(args.search);
+      cliArgs.push("--", args.search);
     } else {
       return "Error: provide either 'search' or both 'file' and 'line'";
     }
