@@ -22,6 +22,11 @@ export interface NewTaskOptions {
    * The project must exist in the vault.
    */
   project?: string;
+  /**
+   * Target date for the daily note (YYYY-MM-DD). Defaults to today.
+   * Ignored when `project` is set.
+   */
+  date?: string;
 }
 
 /**
@@ -48,6 +53,12 @@ export interface AddNoteOptions {
    * is auto-generated from the note content. Only used when adding to a project.
    */
   changelogSummary?: string;
+
+  /**
+   * Target date for the daily note (YYYY-MM-DD). Defaults to today.
+   * Ignored when `project` is set.
+   */
+  date?: string;
 }
 
 /**
@@ -85,7 +96,7 @@ export async function addTask(
     return addTaskToProject(config, options.project, taskLine);
   }
 
-  return addTaskToDailyNote(config, taskLine);
+  return addTaskToDailyNote(config, taskLine, options.date);
 }
 
 /**
@@ -282,14 +293,16 @@ export async function markTaskStatus(
 // ─── Internal helpers ────────────────────────────────────────
 
 /**
- * Add a formatted task line to today's daily note under "## Journal".
+ * Add a formatted task line to a daily note under "## Journal".
+ * @param date - Target date (YYYY-MM-DD). Defaults to today.
  */
 async function addTaskToDailyNote(
   config: SiftConfig,
   taskLine: string,
+  date?: string,
 ): Promise<string> {
-  const today = localToday();
-  const dailyNotePath = getDailyNotePath(config, today);
+  const targetDate = date || localToday();
+  const dailyNotePath = getDailyNotePath(config, targetDate);
   const fullPath = path.join(config.vaultPath, dailyNotePath);
 
   // Ensure the daily notes directory exists
@@ -301,7 +314,7 @@ async function addTaskToDailyNote(
     content = await fs.readFile(fullPath, "utf-8");
   } catch {
     // File doesn't exist, create it with the standard template
-    content = createDailyNoteTemplate(today);
+    content = createDailyNoteTemplate(targetDate);
   }
 
   // Insert the task under the "## Journal" section
@@ -338,14 +351,15 @@ async function addTaskToProject(
 }
 
 /**
- * Add a note to today's daily note under a heading (default "## Journal").
+ * Add a note to a daily note under a heading (default "## Journal").
+ * @param options.date - Target date (YYYY-MM-DD). Defaults to today.
  */
 async function addNoteToDailyNote(
   config: SiftConfig,
   options: AddNoteOptions,
 ): Promise<string> {
-  const today = localToday();
-  const dailyNotePath = getDailyNotePath(config, today);
+  const targetDate = options.date || localToday();
+  const dailyNotePath = getDailyNotePath(config, targetDate);
   const fullPath = path.join(config.vaultPath, dailyNotePath);
 
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -354,7 +368,7 @@ async function addNoteToDailyNote(
   try {
     content = await fs.readFile(fullPath, "utf-8");
   } catch {
-    content = createDailyNoteTemplate(today);
+    content = createDailyNoteTemplate(targetDate);
   }
 
   const heading = options.heading || "## Journal";
@@ -428,6 +442,9 @@ filename does not include ${date}
 \`\`\`
 
 ## Journal
+
+
+## Accomplishments
 
 
 ## Tasks Created Today

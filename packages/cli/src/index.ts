@@ -111,6 +111,7 @@ program
   .option("--start <date>", "Start date (YYYY-MM-DD)")
   .option("-r, --recurrence <rule>", "Recurrence rule (e.g., 'every week')")
   .option("--project <name>", "Add task to a project instead of daily note")
+  .option("--date <date>", "Target daily note date (YYYY-MM-DD, default: today)")
   .action(async (descriptionParts: string[], opts) => {
     const config = await resolveConfig();
     const description = descriptionParts.join(" ");
@@ -123,11 +124,14 @@ program
       start: opts.start,
       recurrence: opts.recurrence,
       project: opts.project,
+      date: opts.date,
     });
 
     const target = opts.project
       ? `project "${opts.project}"`
-      : "today's daily note";
+      : opts.date
+        ? `daily note for ${opts.date}`
+        : "today's daily note";
     console.log(chalk.green("✓") + ` Added task to ${target}:`);
     console.log("  " + taskLine);
   });
@@ -221,6 +225,7 @@ program
   .option("--project <name>", "Add note to a project instead of daily note")
   .option("--heading <heading>", "Target heading (default: '## Journal' for daily, '## Notes' for projects)")
   .option("--changelog-summary <summary>", "Explicit changelog entry summary (auto-generated if omitted)")
+  .option("--date <date>", "Target daily note date (YYYY-MM-DD, default: today)")
   .action(async (contentParts: string[], opts) => {
     const config = await resolveConfig();
     const content = contentParts.join(" ");
@@ -231,11 +236,14 @@ program
         project: opts.project,
         heading: opts.heading,
         changelogSummary: opts.changelogSummary,
+        date: opts.date,
       });
 
       const target = opts.project
         ? `project "${opts.project}"`
-        : "today's daily note";
+        : opts.date
+          ? `daily note for ${opts.date}`
+          : "today's daily note";
       const heading = opts.heading || (opts.project ? "## Notes" : "## Journal");
       console.log(chalk.green("✓") + ` Added note to ${target} under ${heading}`);
     } catch (err: any) {

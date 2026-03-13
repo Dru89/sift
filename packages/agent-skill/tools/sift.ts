@@ -122,6 +122,12 @@ export const add = tool({
       .describe(
         "Name of the project to add this task to. If omitted, the task goes to today's daily note.",
       ),
+    date: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Target daily note date in YYYY-MM-DD format. Defaults to today. Ignored when project is set.",
+      ),
   },
   async execute(args) {
     const cliArgs = ["add"];
@@ -131,6 +137,7 @@ export const add = tool({
     if (args.start) cliArgs.push("--start", args.start);
     if (args.recurrence) cliArgs.push("--recurrence", args.recurrence);
     if (args.project) cliArgs.push("--project", args.project);
+    if (args.date) cliArgs.push("--date", args.date);
     cliArgs.push("--", args.description);
     return runSift(cliArgs);
   },
@@ -259,12 +266,19 @@ export const note = tool({
       .describe(
         "A short one-liner for the changelog entry (e.g. 'Decided to use ID3v2.4 format'). Always provide this when adding a note to a project — do not rely on the auto-generated default.",
       ),
+    date: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Target daily note date in YYYY-MM-DD format. Defaults to today. Ignored when project is set.",
+      ),
   },
   async execute(args) {
     const cliArgs = ["note"];
     if (args.project) cliArgs.push("--project", args.project);
     if (args.heading) cliArgs.push("--heading", args.heading);
     if (args.changelogSummary) cliArgs.push("--changelog-summary", args.changelogSummary);
+    if (args.date) cliArgs.push("--date", args.date);
     cliArgs.push("--", args.content);
     return runSift(cliArgs);
   },

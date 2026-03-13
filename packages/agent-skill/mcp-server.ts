@@ -146,6 +146,11 @@ const tools: Tool[] = [
           description:
             "Name of the project to add this task to. If omitted, the task goes to today's daily note.",
         },
+        date: {
+          type: "string",
+          description:
+            "Target daily note date in YYYY-MM-DD format. Defaults to today. Ignored when project is set.",
+        },
       },
       required: ["description"],
     },
@@ -255,6 +260,11 @@ const tools: Tool[] = [
           type: "string",
           description:
             "A short one-liner for the changelog entry (e.g. 'Decided to use ID3v2.4 format'). Always provide this when adding a note to a project — do not rely on the auto-generated default.",
+        },
+        date: {
+          type: "string",
+          description:
+            "Target daily note date in YYYY-MM-DD format. Defaults to today. Ignored when project is set.",
         },
       },
       required: ["content"],
@@ -406,6 +416,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cliArgs.push("--recurrence", args.recurrence as string);
         if (args?.project)
           cliArgs.push("--project", args.project as string);
+        if (args?.date)
+          cliArgs.push("--date", args.date as string);
         cliArgs.push("--", args?.description as string);
         const result = runSift(cliArgs);
         return {
@@ -473,6 +485,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           cliArgs.push("--heading", args.heading as string);
         if (args?.changelogSummary)
           cliArgs.push("--changelog-summary", args.changelogSummary as string);
+        if (args?.date)
+          cliArgs.push("--date", args.date as string);
         cliArgs.push("--", args?.content as string);
         const result = runSift(cliArgs);
         return {
