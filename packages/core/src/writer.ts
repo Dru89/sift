@@ -737,12 +737,35 @@ function verifyDescription(
   lineNum: number,
   filePath: string,
 ): void {
-  if (!line.toLowerCase().includes(expected.toLowerCase())) {
+  // Strip markdown formatting from both sides so that backtick-wrapped terms,
+  // wiki links, bold, etc. don't prevent matching.
+  const cleanLine = stripMarkdownForVerify(line).toLowerCase();
+  const cleanExpected = stripMarkdownForVerify(expected).toLowerCase();
+  if (!cleanLine.includes(cleanExpected)) {
     throw new Error(
       `Task at line ${lineNum} in ${filePath} does not match expected description. ` +
       `Expected to contain "${expected}" but found: "${line.trim()}"`,
     );
   }
+}
+
+/**
+ * Strip markdown syntax for description verification.
+ * Removes: wiki links, bold, italic (word-boundary only), inline code, tags.
+ */
+function stripMarkdownForVerify(text: string): string {
+  let result = text;
+  // Wiki links: [[display|target]] -> display, [[target]] -> target
+  result = result.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2");
+  // Bold/italic with asterisks
+  result = result.replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1");
+  // Bold/italic with underscores (word-boundary only)
+  result = result.replace(/(?<!\w)_{1,2}([^_]+)_{1,2}(?!\w)/g, "$1");
+  // Inline code
+  result = result.replace(/`([^`]+)`/g, "$1");
+  // Tags
+  result = result.replace(/(?<=\s|^)#([\w-]+)/g, "$1");
+  return result;
 }
 
 /**
@@ -1041,4 +1064,148 @@ export function insertContentUnderHeading(
   }
 
   return lines.join("\n");
+}
+
+// ─── Promote ─────────────────────────────────────────────────
+
+/**
+ * Options for promoting a task to a project.
+ */
+export interface PromoteTaskOptions {
+  /** File path (relative to vault root, or absolute) */
+  file: string;
+  /** 1-indexed line number of the task */
+  line: number;
+  /** Project name. Default: task description. */
+  name?: string;
+  /** Parent area for the new project */
+  area?: string;
+  /** Initial project status. Default: "active" */
+  status?: string;
+  /** Tags for the new project */
+  tags?: string[];
+  /** Partial task text for safety verification */
+  description?: string;
+}
+
+/**
+ * Result of promoting a task to a project.
+ */
+export interface PromoteTaskResult {
+  /** The task description */
+  task: string;
+  /** Source file path */
+  sourceFile: string;
+  /** Source line number */
+  sourceLine: number;
+  /** The new project name */
+  projectName: string;
+  /** Path to the new project file (relative to vault root) */
+  projectFile: string;
+  /** Whether the task had a thread that was preserved */
+  hadThread: boolean;
+}
+
+/**
+ * Promote a task to a project. Creates a new project file, moves the task
+ * (and any attached thread) into it, and removes from the source file.
+ *
+ * Follows the same safety pattern as moveTask: writes destination first,
+ * then removes from source.
+ */
+export async function promoteTask(
+  config: SiftConfig,
+  options: PromoteTaskOptions,
+): Promise<PromoteTaskResult> {
+  const { createProject: create } = await import("./projects.js");
+
+  // ── Read and validate the source ──────────────────────────
+  const normalizedSourcePath = normalizeFilePath(config, options.file);
+  const sourceFullPath = path.join(config.vaultPath, normalizedSourcePath);
+  const sourceContent = await fs.readFile(sourceFullPath, "utf-8");
+  const sourceLines = sourceContent.split("\n");
+
+  const lineIdx = options.line - 1;
+  if (lineIdx < 0 || lineIdx >= sourceLines.length) {
+    throw new Error(`Line ${options.line} out of range in ${normalizedSourcePath}`);
+  }
+
+  const taskLine = sourceLines[lineIdx];
+  if (!taskLine.match(/- \[.\]/)) {
+    throw new Error(
+      `Line ${options.line} in ${normalizedSourcePath} is not a task: "${taskLine.trim()}"`,
+    );
+  }
+
+  if (options.description) {
+    verifyDescription(taskLine, options.description, options.line, normalizedSourcePath);
+  }
+
+  // Extract task description
+  const task = parseLine(taskLine, normalizedSourcePath, options.line);
+  const taskDescription = task ? task.description : taskLine.trim();
+
+  // ── Collect the task block (task line + thread lines) ─────
+  const blockLines = [taskLine];
+  let threadLineCount = 0;
+
+  // Look for thread blockquote lines following the task
+  const blockquoteRegex = /^\s*>/;
+  for (let i = lineIdx + 1; i < sourceLines.length; i++) {
+    const line = sourceLines[i];
+    // Stop at next task line
+    if (/^\s*- \[.\]/.test(line)) break;
+    // Stop at non-blockquote, non-empty lines (next content)
+    if (line.trim() !== "" && !blockquoteRegex.test(line)) break;
+    // Include blockquote lines and blank lines within the block
+    if (blockquoteRegex.test(line)) {
+      blockLines.push(line);
+      threadLineCount++;
+    } else if (line.trim() === "") {
+      // Blank line — check if more blockquote follows
+      let hasMore = false;
+      for (let j = i + 1; j < sourceLines.length; j++) {
+        if (sourceLines[j].trim() === "") continue;
+        if (blockquoteRegex.test(sourceLines[j])) hasMore = true;
+        break;
+      }
+      if (hasMore) {
+        blockLines.push(line);
+      } else {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  const hadThread = threadLineCount > 0;
+
+  // ── Create the project ────────────────────────────────────
+  const projectName = options.name || taskDescription;
+  const projectFilePath = await create(config, projectName, {
+    status: options.status || "active",
+    area: options.area,
+    tags: options.tags,
+  });
+
+  // ── Insert task block into the project ────────────────────
+  const projectFullPath = path.join(config.vaultPath, projectFilePath);
+  let projectContent = await fs.readFile(projectFullPath, "utf-8");
+  const taskBlock = blockLines.join("\n");
+  projectContent = insertContentUnderHeading(projectContent, taskBlock, "## Tasks");
+  await fs.writeFile(projectFullPath, projectContent, "utf-8");
+
+  // ── Remove task block from source ─────────────────────────
+  sourceLines.splice(lineIdx, blockLines.length);
+  await fs.writeFile(sourceFullPath, sourceLines.join("\n"), "utf-8");
+
+  return {
+    task: taskDescription,
+    sourceFile: normalizedSourcePath,
+    sourceLine: options.line,
+    projectName,
+    projectFile: projectFilePath,
+    hadThread,
+  };
 }

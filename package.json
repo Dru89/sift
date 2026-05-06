@@ -9,6 +9,7 @@
   "scripts": {
     "build": "npm run build --workspace=packages/core && npm run build --workspace=packages/cli && npm run build --workspace=skills/sift",
     "build:all": "npm run build && npm run build --workspace=packages/raycast --if-present",
+    "test": "npm test --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },
   "engines": {

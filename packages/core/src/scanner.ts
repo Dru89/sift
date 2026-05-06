@@ -239,9 +239,11 @@ function stripMarkdownForSearch(text: string): string {
   let result = text;
   // Wiki links: [[display|target]] -> display, [[target]] -> target
   result = result.replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2");
-  // Bold/italic: **text** or __text__ or *text* or _text_
+  // Bold/italic with asterisks: **text** or *text*
   result = result.replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1");
-  result = result.replace(/_{1,2}([^_]+)_{1,2}/g, "$1");
+  // Bold/italic with underscores: __text__ or _text_ — only when bounded by non-word chars.
+  // This avoids stripping underscores from identifiers like vault_write.
+  result = result.replace(/(?<!\w)_{1,2}([^_]+)_{1,2}(?!\w)/g, "$1");
   // Inline code: `text`
   result = result.replace(/`([^`]+)`/g, "$1");
   // Tags: #tag-name (but not headings)
@@ -250,7 +252,7 @@ function stripMarkdownForSearch(text: string): string {
 }
 
 /**
- * Tokenized search: strips markdown syntax from the description, then checks
+ * Exact tokenized search: strips markdown syntax from the description, then checks
  * that every whitespace-separated token in the search string appears somewhere
  * in the cleaned description (case-insensitive, order-independent).
  */

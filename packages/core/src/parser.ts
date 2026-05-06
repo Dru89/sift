@@ -1,4 +1,5 @@
-import { type Task, type TaskStatus, type Priority, ACTIONABLE_STATUSES } from "./types.js";
+import { type Task, type TaskStatus, type Priority, type Thread, ACTIONABLE_STATUSES } from "./types.js";
+import { parseThread } from "./thread-parser.js";
 
 /**
  * Emoji markers used by Obsidian Tasks plugin.
@@ -94,11 +95,14 @@ export function parseLine(
     recurrence,
     filePath,
     line: lineNumber,
+    thread: null,
   };
 }
 
 /**
  * Parse multiple lines of text and extract all tasks.
+ * Also detects thread blocks attached to tasks (blockquotes below a task line).
+ * Skips content inside fenced code blocks (``` ... ```).
  *
  * @param content - The full text content of a file
  * @param filePath - The file path (relative to vault root)
@@ -106,10 +110,26 @@ export function parseLine(
 export function parseContent(content: string, filePath: string): Task[] {
   const lines = content.split("\n");
   const tasks: Task[] = [];
+  let insideCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
+    // Toggle code block state on fence lines (``` or ~~~, with optional indentation)
+    if (/^\s*(`{3,}|~{3,})/.test(lines[i])) {
+      insideCodeBlock = !insideCodeBlock;
+      continue;
+    }
+
+    // Skip everything inside code blocks
+    if (insideCodeBlock) continue;
+
     const task = parseLine(lines[i], filePath, i + 1);
     if (task) {
+      // Look for a thread in the lines following this task
+      const remainingLines = lines.slice(i + 1);
+      const thread = parseThread(remainingLines, i + 1);
+      if (thread) {
+        task.thread = thread;
+      }
       tasks.push(task);
     }
   }
@@ -226,7 +246,7 @@ function stripMetadata(text: string): string {
  * Format a Task back into the Obsidian Tasks emoji format.
  * Useful for writing tasks to files.
  */
-export function formatTask(task: Omit<Task, "raw" | "filePath" | "line">): string {
+export function formatTask(task: Omit<Task, "raw" | "filePath" | "line" | "thread">): string {
   const parts: string[] = [`- [${statusToChar(task.status)}] ${task.description}`];
 
   if (task.priority !== "none") {

@@ -68,6 +68,9 @@ export interface Task {
 
   /** The line number in the file (1-indexed) */
   line: number;
+
+  /** Thread attached to this task, if any */
+  thread: Thread | null;
 }
 
 /**
@@ -227,6 +230,57 @@ export interface VaultFile {
   /** The date this file was created/dated (YYYY-MM-DD) */
   date: string;
 }
+
+// ─── Thread Types ────────────────────────────────────────────
+
+/**
+ * The state of a thread conversation.
+ * - active: ball is in my court — I need to do something
+ * - waiting: ball is in their court — check back at follow-up date
+ * - paused: intentionally idle — will resume or die naturally
+ * - resolved: conversation concluded — task may still be open
+ */
+export type ThreadState = "active" | "waiting" | "paused" | "resolved";
+
+/**
+ * A single timestamped entry in a thread log.
+ */
+export interface ThreadEntry {
+  /** When this happened (YYYY-MM-DD), or null if undated */
+  date: string | null;
+
+  /** What happened — one line, may contain inline markdown/links */
+  description: string;
+}
+
+/**
+ * A parsed thread attached to a task.
+ * Represents an ongoing conversation with one or more counterparts.
+ */
+export interface Thread {
+  /** People or teams involved (wiki link names or plain text) */
+  counterparts: string[];
+
+  /** Current conversation state */
+  state: ThreadState;
+
+  /** When to check back if state hasn't changed (YYYY-MM-DD) */
+  followUp: string | null;
+
+  /** Where the conversation lives (URL or markdown link) */
+  source: string | null;
+
+  /** Ordered log of what happened */
+  entries: ThreadEntry[];
+
+  /** Line number where the thread block starts (the header line, 1-indexed) */
+  startLine: number;
+
+  /** Line number where the thread block ends (inclusive, 1-indexed) */
+  endLine: number;
+}
+
+// ─── Review Types ────────────────────────────────────────────
 
 /**
  * A weekly (or custom period) review summary.
