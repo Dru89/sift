@@ -7,59 +7,34 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { execFileSync } from "child_process";
-
-/**
- * Resolve the sift CLI command. Checks in order:
- * 1. SIFT_CLI_PATH env var (absolute path to the built CLI entry point)
- * 2. "sift" on PATH (if globally linked via `npm link`)
- *
- * In both cases, the CLI is executed via process.execPath (the same Node
- * binary running this MCP server) to avoid shebang-based PATH resolution
- * picking up an incompatible Node version in restricted environments
- * like Claude Desktop.
- */
-function getSiftCommand(): { command: string; prefixArgs: string[] } {
-  if (process.env.SIFT_CLI_PATH) {
-    return { command: process.execPath, prefixArgs: [process.env.SIFT_CLI_PATH] };
-  }
-
-  // On non-Windows: resolve "sift" on PATH to its real .js file so we can
-  // run it through process.execPath, bypassing the shebang.
-  // On Windows: npm wraps linked bins as .cmd files which can't be run
-  // through node directly — skip resolution and fall through to the wrapper.
-  if (process.platform !== "win32") {
-    try {
-      const which = execFileSync("which", ["sift"], { encoding: "utf-8" }).trim();
-      if (which) {
-        return { command: process.execPath, prefixArgs: [which] };
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  // Last resort: invoke "sift" directly (works via .cmd wrapper on Windows)
-  return { command: "sift", prefixArgs: [] };
-}
-
-function runSift(args: string[]): string {
-  const { command, prefixArgs } = getSiftCommand();
-  try {
-    const result = execFileSync(command, [...prefixArgs, ...args], {
-      encoding: "utf-8",
-      env: {
-        ...process.env,
-        // Strip color codes for cleaner output in agent context
-        NO_COLOR: "1",
-        FORCE_COLOR: "0",
-      },
-      timeout: 15000,
-    });
-    return result.trim();
-  } catch (error: any) {
-    return `Error running sift: ${error.message}`;
-  }
-}
+import {
+  toolList,
+  toolNext,
+  toolThreadCreate,
+  toolThreadEntry,
+  toolThreadState,
+  toolThreadList,
+  toolSummary,
+  toolAgenda,
+  toolAdd,
+  toolFind,
+  toolDone,
+  toolMark,
+  toolUpdate,
+  toolMove,
+  toolProjects,
+  toolProjectCreate,
+  toolProjectPath,
+  toolProjectSet,
+  toolProjectReview,
+  toolAreaCreate,
+  toolAreaPath,
+  toolNote,
+  toolSubnote,
+  toolTriage,
+  toolReview,
+  toolPromote,
+} from "./tool-impls.js";
 
 /**
  * Run an Obsidian CLI command. Requires Obsidian to be running.
@@ -88,7 +63,7 @@ function runObsidian(args: string[]): string {
 // Define the tools
 const tools: Tool[] = [
   {
-    name: "sift_list",
+    name: "list",
     description:
       "List open tasks from the Obsidian vault. Returns tasks sorted by priority and urgency.",
     inputSchema: {
@@ -127,7 +102,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_next",
+    name: "next",
     description:
       "Get the most important tasks to work on right now, sorted by priority and urgency.",
     inputSchema: {
@@ -141,7 +116,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_summary",
+    name: "summary",
     description:
       "Quick overview of task status: today's agenda, counts, and what's up next.",
     inputSchema: {
@@ -150,7 +125,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_agenda",
+    name: "agenda",
     description:
       "Show tasks relevant to today: due today, overdue, scheduled for today or past, in-progress, and newly available. Use this when the user asks 'what's on my plate today?' or 'what should I focus on today?'",
     inputSchema: {
@@ -159,7 +134,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_add",
+    name: "add",
     description:
       "Add a new task to today's daily note or to a specific project in Obsidian. Use the 'project' parameter to add directly to a project file instead of the daily note.",
     inputSchema: {
@@ -205,9 +180,9 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_find",
+    name: "find",
     description:
-      "Search for open tasks matching a query without modifying them. Returns matching tasks with file paths and line numbers. Use this before sift_done to preview which task will be completed. To find recently completed or cancelled tasks (e.g., to undo a mistake), pass a specific status filter.",
+      "Search for open tasks matching a query without modifying them. Returns matching tasks with file paths and line numbers. Use this before sift_done to preview which task will be completed.",
     inputSchema: {
       type: "object",
       properties: {
@@ -222,14 +197,14 @@ const tools: Tool[] = [
         status: {
           type: "string",
           enum: ["open", "in_progress", "done", "cancelled", "on_hold", "moved"],
-          description: "Filter to a specific status. Overrides the default open/in_progress filter. Use 'done' to find recently completed tasks (e.g., to undo a mistaken completion).",
+          description: "Filter to a specific status. Overrides the default open/in_progress filter. Use 'done' to find recently completed tasks.",
         },
       },
       required: ["search"],
     },
   },
   {
-    name: "sift_done",
+    name: "done",
     description:
       "Mark a task as complete. Supports two modes: (1) search mode — pass 'search' to find and complete by description, or (2) precise mode — pass 'file' and 'line' to complete an exact task. Prefer precise mode after using sift_find to identify the task. IMPORTANT: You MUST call sift_find first, show the user the exact task you found, and get their explicit confirmation BEFORE calling this tool. Never call sift_done in the same turn as sift_find.",
     inputSchema: {
@@ -259,7 +234,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_projects",
+    name: "projects",
     description:
       "List all projects in the vault. Returns project names, statuses, and tags.",
     inputSchema: {
@@ -278,7 +253,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_project_create",
+    name: "project_create",
     description:
       "Create a new project from the vault's project template.",
     inputSchema: {
@@ -313,7 +288,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_project_path",
+    name: "project_path",
     description:
       "Get the absolute file path for a project. Useful when you need to read or edit a project file directly.",
     inputSchema: {
@@ -328,7 +303,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_note",
+    name: "note",
     description:
       "Add a freeform note to today's daily note or to a project.",
     inputSchema: {
@@ -358,7 +333,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_subnote",
+    name: "subnote",
     description:
       "Create a new note file linked to a project. Use this instead of sift_note when the content is long (>20 lines), self-contained (design spec, meeting notes, API reference), or has a different lifecycle than the project file itself. Creates the file and inserts a wiki link in the project. To also create a trackable task, call sift_add separately with a wiki link to the subnote in the description.",
     inputSchema: {
@@ -402,7 +377,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_area_create",
+    name: "area_create",
     description:
       "Create a new area from the vault's area template.",
     inputSchema: {
@@ -429,7 +404,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_area_path",
+    name: "area_path",
     description:
       "Get the absolute file path for an area. Useful when you need to read or edit an area file directly.",
     inputSchema: {
@@ -444,7 +419,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_project_set",
+    name: "project_set",
     description:
       "Update frontmatter fields on a project or area (status, timeframe, tags, reviewInterval). Use this to change a project's or area's status (active, planning, someday, done), timeframe, tags, or review cadence.",
     inputSchema: {
@@ -477,7 +452,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_mark",
+    name: "mark",
     description:
       "Mark a task with any status (in_progress, on_hold, moved, cancelled, open, done). Supports two modes: (1) search mode — pass 'search' to find and mark by description, or (2) precise mode — pass 'file' and 'line'. Prefer precise mode after using sift_find. IMPORTANT: You MUST call sift_find first, show the user the exact task you found, and get their explicit confirmation BEFORE calling this tool. Never call sift_mark in the same turn as sift_find.",
     inputSchema: {
@@ -513,7 +488,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_update",
+    name: "update",
     description:
       "Modify a task's metadata in place (dates, priority). Operates by file + line like sift_done and sift_mark. Use sift_find first to locate the task. IMPORTANT: You MUST call sift_find first, show the user the exact task you found, and get their explicit confirmation BEFORE calling this tool.",
     inputSchema: {
@@ -553,7 +528,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_move",
+    name: "move",
     description:
       "Move a task from one file to another. Removes the task from the source file and inserts it in the destination. Use sift_find first to locate the task. IMPORTANT: This is a destructive operation. You MUST call sift_find first, show the user the exact task and intended destination, and get their explicit confirmation BEFORE calling this tool.",
     inputSchema: {
@@ -584,7 +559,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_project_review",
+    name: "project_review",
     description:
       "Stamp lastReviewed: today on a project or area's frontmatter. Call this after reviewing a project's tasks and status during a review session.",
     inputSchema: {
@@ -599,7 +574,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_triage",
+    name: "triage",
     description:
       "Return a tiered project review summary. Tier 1: projects needing attention (stale tasks, inactive, overdue reviews, orphan mentions). Tier 2: due for review but look healthy (name, task count, top tasks). Tier 3: not due (names only). Plus loose tasks from recent daily notes. Use this to run a project review session.",
     inputSchema: {
@@ -613,7 +588,7 @@ const tools: Tool[] = [
     },
   },
   {
-    name: "sift_review",
+    name: "review",
     description:
       "Generate a review summary for a time period. Shows tasks completed, tasks created (still open), tasks needing triage (no dates or stale high-priority), project changelog entries, and upcoming tasks. Defaults to since last Friday.",
     inputSchema: {
@@ -636,7 +611,7 @@ const tools: Tool[] = [
   },
   // ─── Graph / context tools ─────────────────────────────────
   {
-    name: "sift_graph",
+    name: "graph",
     description:
       "Return the structural context for an area or project using Obsidian backlinks. Buckets all files that link to the target into: projects (child projects), notes (subnotes and reference material), and other (emails, weblinks, etc.). Daily notes and weekly notes are excluded. Use this to orient before doing work on an area — one call reveals what projects and reference material are connected without requiring the user to enumerate them. Requires Obsidian to be running.",
     inputSchema: {
@@ -651,6 +626,26 @@ const tools: Tool[] = [
     },
   },
   // ─── Obsidian CLI tools ────────────────────────────────────
+  {
+    name: "vault_open",
+    description:
+      "Open a file in Obsidian. Use this when the user asks to open, view, or navigate to a vault file. Requires Obsidian to be running.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          description:
+            "File name (wikilink-style resolution, e.g., 'Sift' finds 'Projects/Sift.md') or exact path.",
+        },
+        newTab: {
+          type: "boolean",
+          description: "Open in a new tab instead of replacing the current one.",
+        },
+      },
+      required: ["file"],
+    },
+  },
   {
     name: "vault_search",
     description:
@@ -727,6 +722,126 @@ const tools: Tool[] = [
       required: ["file"],
     },
   },
+  // ─── Thread Tools ────────────────────────────────────────────
+  {
+    name: "thread_create",
+    description:
+      "Start a new thread on an existing task. A thread tracks an async conversation with another person or team.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path containing the task" },
+        line: { type: "number", description: "Line number of the task (1-indexed)" },
+        counterparts: {
+          type: "array",
+          items: { type: "string" },
+          description: "People or teams involved (wiki link names or plain text)",
+        },
+        state: {
+          type: "string",
+          enum: ["active", "waiting", "paused", "resolved"],
+          description: "Initial state. Default: active",
+        },
+        followUp: { type: "string", description: "Follow-up date (YYYY-MM-DD)" },
+        source: { type: "string", description: "URL or markdown link to conversation location" },
+        content: { type: "string", description: "First entry description" },
+        date: { type: "string", description: "Date for first entry (YYYY-MM-DD). Default: today" },
+        description: { type: "string", description: "Partial task text for safety verification" },
+      },
+      required: ["file", "line", "counterparts"],
+    },
+  },
+  {
+    name: "thread_entry",
+    description:
+      "Add a timestamped entry to an existing thread. Optionally update state and follow-up simultaneously.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path containing the task" },
+        line: { type: "number", description: "Line number of the task (1-indexed)" },
+        content: { type: "string", description: "What happened (one line)" },
+        state: {
+          type: "string",
+          enum: ["active", "waiting", "paused", "resolved"],
+          description: "Change thread state simultaneously",
+        },
+        followUp: { type: "string", description: "Set/update follow-up date. Pass 'none' to clear." },
+        date: { type: "string", description: "Entry date (YYYY-MM-DD). Default: today" },
+        description: { type: "string", description: "Partial task text for safety verification" },
+      },
+      required: ["file", "line", "content"],
+    },
+  },
+  {
+    name: "thread_state",
+    description:
+      "Change thread metadata without adding an entry. Updates state, follow-up, counterparts, or source.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path containing the task" },
+        line: { type: "number", description: "Line number of the task (1-indexed)" },
+        state: {
+          type: "string",
+          enum: ["active", "waiting", "paused", "resolved"],
+          description: "New state",
+        },
+        followUp: { type: "string", description: "Set/update/clear follow-up. 'none' to clear." },
+        counterparts: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replace counterpart list",
+        },
+        source: { type: "string", description: "Update source link. 'none' to clear." },
+        description: { type: "string", description: "Partial task text for safety verification" },
+      },
+      required: ["file", "line"],
+    },
+  },
+  {
+    name: "thread_list",
+    description:
+      "List threads filtered by state. The 'waiting for' view — shows conversations needing attention.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        state: {
+          type: "string",
+          enum: ["active", "waiting", "paused", "resolved"],
+          description: "Filter by state. Default: active + waiting",
+        },
+        stale: {
+          type: "boolean",
+          description: "Only show stale threads (past follow-up or undated waiting > 2 days)",
+        },
+        counterpart: { type: "string", description: "Filter by counterpart name" },
+        project: { type: "string", description: "Filter to threads within a specific project" },
+      },
+    },
+  },
+  {
+    name: "promote",
+    description:
+      "Upgrade a task to a project. Moves the task (and any attached thread) into a new project file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path containing the task" },
+        line: { type: "number", description: "Line number of the task (1-indexed)" },
+        name: { type: "string", description: "Project name. Default: task description." },
+        area: { type: "string", description: "Parent area for the new project" },
+        status: { type: "string", description: "Initial project status. Default: active" },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags for the new project",
+        },
+        description: { type: "string", description: "Partial task text for safety verification" },
+      },
+      required: ["file", "line"],
+    },
+  },
 ];
 
 // Create server instance
@@ -755,286 +870,205 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
-      case "sift_list": {
-        const cliArgs = ["list", "--show-file", "--absolute"];
-        if (args?.search) cliArgs.push("--search", args.search as string);
-        if (args?.priority) cliArgs.push("--priority", args.priority as string);
-        if (args?.dueBefore)
-          cliArgs.push("--due-before", args.dueBefore as string);
-        if (args?.scheduledBefore)
-          cliArgs.push("--scheduled-before", args.scheduledBefore as string);
-        if (args?.all) cliArgs.push("--all");
-        if (args?.project) cliArgs.push("--project", args.project as string);
-        if (args?.groupByProject) cliArgs.push("--group-by-project");
-        const result = runSift(cliArgs);
+      case "list": {
+        const result = await toolList({
+          search: args?.search as string | undefined,
+          priority: args?.priority as string | undefined,
+          dueBefore: args?.dueBefore as string | undefined,
+          scheduledBefore: args?.scheduledBefore as string | undefined,
+          all: args?.all as boolean | undefined,
+          project: args?.project as string | undefined,
+        });
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
-      case "sift_next": {
-        const cliArgs = ["next", "--show-file", "--absolute"];
-        if (args?.count) cliArgs.push("-n", String(args.count));
-        const result = runSift(cliArgs);
+      case "next": {
+        const result = await toolNext({
+          count: args?.count as number | undefined,
+        });
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
-      case "sift_summary": {
-        const result = runSift(["summary"]);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_agenda": {
-        const result = runSift(["agenda", "--show-file", "--absolute"]);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_add": {
-        const cliArgs = ["add"];
-        if (args?.priority)
-          cliArgs.push("--priority", args.priority as string);
-        if (args?.due) cliArgs.push("--due", args.due as string);
-        if (args?.scheduled)
-          cliArgs.push("--scheduled", args.scheduled as string);
-        if (args?.start) cliArgs.push("--start", args.start as string);
-        if (args?.recurrence)
-          cliArgs.push("--recurrence", args.recurrence as string);
-        if (args?.project)
-          cliArgs.push("--project", args.project as string);
-        if (args?.date)
-          cliArgs.push("--date", args.date as string);
-        cliArgs.push("--", args?.description as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_find": {
-        const cliArgs = ["find", "--show-file", "--absolute"];
-        if (args?.all) cliArgs.push("--all");
-        if (args?.status) cliArgs.push("--status", args.status as string);
-        cliArgs.push("--", args?.search as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_done": {
-        if (args?.file && args?.line) {
-          const cliArgs = [
-            "done",
-            "--file", args.file as string,
-            "--line", String(args.line),
-          ];
-          if (args.description) cliArgs.push("--description", args.description as string);
-          const result = runSift(cliArgs);
-          return { content: [{ type: "text", text: result }] };
-        }
-        if (args?.search) {
-          const result = runSift(["done", "--", args.search as string]);
-          return { content: [{ type: "text", text: result }] };
-        }
-        return {
-          content: [{ type: "text", text: "Error: provide either 'search' or both 'file' and 'line'." }],
-          isError: true,
-        };
-      }
-
-      case "sift_projects": {
-        const cliArgs = ["projects"];
-        if (args?.tag) cliArgs.push("--tag", args.tag as string);
-        if (args?.kind) cliArgs.push("--kind", args.kind as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_project_create": {
-        const cliArgs = ["project", "create", "--absolute"];
-        if (args?.status) cliArgs.push("--status", args.status as string);
-        if (args?.area) cliArgs.push("--area", args.area as string);
-        if (args?.tags) cliArgs.push("--tags", args.tags as string);
-        if (args?.content) cliArgs.push("--content", args.content as string);
-        if (args?.frontmatter) cliArgs.push("--frontmatter", args.frontmatter as string);
-        cliArgs.push("--", args?.name as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_project_path": {
-        const result = runSift(["project", "path", "--absolute", "--", args?.name as string]);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_area_create": {
-        const cliArgs = ["area", "create", "--absolute"];
-        if (args?.tags) cliArgs.push("--tags", args.tags as string);
-        if (args?.content) cliArgs.push("--content", args.content as string);
-        if (args?.frontmatter) cliArgs.push("--frontmatter", args.frontmatter as string);
-        cliArgs.push("--", args?.name as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_area_path": {
-        const result = runSift(["area", "path", "--absolute", "--", args?.name as string]);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_note": {
-        const cliArgs = ["note"];
-        if (args?.project)
-          cliArgs.push("--project", args.project as string);
-        if (args?.heading)
-          cliArgs.push("--heading", args.heading as string);
-        if (args?.date)
-          cliArgs.push("--date", args.date as string);
-        cliArgs.push("--", args?.content as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_subnote": {
-        const cliArgs = ["subnote", "--absolute"];
-        cliArgs.push("--project", args?.project as string);
-        if (args?.content)
-          cliArgs.push("--content", args.content as string);
-        if (args?.folder)
-          cliArgs.push("--folder", args.folder as string);
-        if (args?.type)
-          cliArgs.push("--type", args.type as string);
-        if (args?.tags && Array.isArray(args.tags) && args.tags.length > 0)
-          cliArgs.push("--tags", ...(args.tags as string[]));
-        if (args?.heading)
-          cliArgs.push("--heading", args.heading as string);
-        cliArgs.push("--", args?.title as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_project_set": {
-        const cliArgs = ["project", "set"];
-        if (args?.status) cliArgs.push("--status", args.status as string);
-        if (args?.timeframe) cliArgs.push("--timeframe", args.timeframe as string);
-        if (args?.tags && Array.isArray(args.tags) && args.tags.length > 0) {
-          cliArgs.push("--tags", ...(args.tags as string[]));
-        }
-        if (args?.reviewInterval) cliArgs.push("--review-interval", String(args.reviewInterval));
-        cliArgs.push("--", args?.name as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "sift_mark": {
-        const cliArgs = ["mark", "--status", args?.status as string];
-        if (args?.file && args?.line) {
-          cliArgs.push("--file", args.file as string, "--line", String(args.line));
-          if (args.description) cliArgs.push("--description", args.description as string);
-        } else if (args?.search) {
-          cliArgs.push("--", args.search as string);
-        } else {
-          return {
-            content: [{ type: "text", text: "Error: provide either 'search' or both 'file' and 'line'." }],
-            isError: true,
-          };
-        }
-        const result = runSift(cliArgs);
+      case "summary": {
+        const result = await toolSummary();
         return { content: [{ type: "text", text: result }] };
       }
 
-      case "sift_update": {
-        if (!args?.file || !args?.line) {
-          return {
-            content: [{ type: "text", text: "Error: 'file' and 'line' are required." }],
-            isError: true,
-          };
-        }
-        const cliArgs = ["update", "--file", args.file as string, "--line", String(args.line)];
-        if (args.description) cliArgs.push("--description", args.description as string);
-        if (args.priority) cliArgs.push("--priority", args.priority as string);
-        if (args.due) cliArgs.push("--due", args.due as string);
-        if (args.scheduled) cliArgs.push("--scheduled", args.scheduled as string);
-        if (args.start) cliArgs.push("--start", args.start as string);
-        const result = runSift(cliArgs);
+      case "agenda": {
+        const result = await toolAgenda();
         return { content: [{ type: "text", text: result }] };
       }
 
-      case "sift_move": {
-        if (!args?.file || !args?.line) {
-          return {
-            content: [{ type: "text", text: "Error: 'file' and 'line' are required." }],
-            isError: true,
-          };
-        }
-        if (!args?.project && !args?.date) {
-          return {
-            content: [{ type: "text", text: "Error: provide either 'project' or 'date' as the destination." }],
-            isError: true,
-          };
-        }
-        const cliArgs = ["move", "--file", args.file as string, "--line", String(args.line)];
-        if (args.description) cliArgs.push("--description", args.description as string);
-        if (args.project) cliArgs.push("--project", args.project as string);
-        if (args.date) cliArgs.push("--date", args.date as string);
-        const result = runSift(cliArgs);
+      case "add": {
+        const result = await toolAdd({
+          description: args!.description as string,
+          priority: args?.priority as string | undefined,
+          due: args?.due as string | undefined,
+          scheduled: args?.scheduled as string | undefined,
+          start: args?.start as string | undefined,
+          recurrence: args?.recurrence as string | undefined,
+          project: args?.project as string | undefined,
+          date: args?.date as string | undefined,
+        });
         return { content: [{ type: "text", text: result }] };
       }
 
-      case "sift_project_review": {
-        if (!args?.name) {
-          return {
-            content: [{ type: "text", text: "Error: 'name' is required." }],
-            isError: true,
-          };
-        }
-        const result = runSift(["project", "review", "--", args.name as string]);
+      case "find": {
+        const result = await toolFind({
+          search: args!.search as string,
+          all: args?.all as boolean | undefined,
+          status: args?.status as string | undefined,
+        });
         return { content: [{ type: "text", text: result }] };
       }
 
-      case "sift_triage": {
-        const cliArgs = ["triage", "--absolute"];
-        if (args?.project) cliArgs.push("--project", args.project as string);
-        const result = runSift(cliArgs);
+      case "done": {
+        const result = await toolDone({
+          file: args?.file as string | undefined,
+          line: args?.line as number | undefined,
+          search: args?.search as string | undefined,
+          description: args?.description as string | undefined,
+        });
         return { content: [{ type: "text", text: result }] };
       }
 
-      case "sift_review": {
-        const cliArgs = ["review", "--absolute"];
-        if (args?.days) cliArgs.push("--days", String(args.days));
-        else if (args?.since) cliArgs.push("--since", args.since as string);
-        if (args?.until) cliArgs.push("--until", args.until as string);
-        const result = runSift(cliArgs);
-        return {
-          content: [{ type: "text", text: result }],
-        };
+      case "projects": {
+        const result = await toolProjects({
+          tag: args?.tag as string | undefined,
+          kind: args?.kind as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "project_create": {
+        const result = await toolProjectCreate({
+          name: args!.name as string,
+          status: args?.status as string | undefined,
+          area: args?.area as string | undefined,
+          tags: args?.tags as string | undefined,
+          content: args?.content as string | undefined,
+          frontmatter: args?.frontmatter as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "project_path": {
+        const result = await toolProjectPath({ name: args!.name as string });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "area_create": {
+        const result = await toolAreaCreate({
+          name: args!.name as string,
+          tags: args?.tags as string | undefined,
+          content: args?.content as string | undefined,
+          frontmatter: args?.frontmatter as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "area_path": {
+        const result = await toolAreaPath({ name: args!.name as string });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "note": {
+        const result = await toolNote({
+          content: args!.content as string,
+          project: args?.project as string | undefined,
+          heading: args?.heading as string | undefined,
+          date: args?.date as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "subnote": {
+        const result = await toolSubnote({
+          project: args!.project as string,
+          title: args!.title as string,
+          content: args?.content as string | undefined,
+          folder: args?.folder as string | undefined,
+          type: args?.type as string | undefined,
+          tags: args?.tags as string[] | undefined,
+          heading: args?.heading as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "project_set": {
+        const result = await toolProjectSet({
+          name: args!.name as string,
+          status: args?.status as string | undefined,
+          timeframe: args?.timeframe as string | undefined,
+          tags: args?.tags as string[] | undefined,
+          reviewInterval: args?.reviewInterval as number | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "mark": {
+        const result = await toolMark({
+          status: args!.status as string,
+          file: args?.file as string | undefined,
+          line: args?.line as number | undefined,
+          search: args?.search as string | undefined,
+          description: args?.description as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "update": {
+        const result = await toolUpdate({
+          file: args!.file as string,
+          line: args!.line as number,
+          description: args?.description as string | undefined,
+          priority: args?.priority as string | undefined,
+          due: args?.due as string | undefined,
+          scheduled: args?.scheduled as string | undefined,
+          start: args?.start as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "move": {
+        const result = await toolMove({
+          file: args!.file as string,
+          line: args!.line as number,
+          description: args?.description as string | undefined,
+          project: args?.project as string | undefined,
+          date: args?.date as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "project_review": {
+        const result = await toolProjectReview({ name: args!.name as string });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "triage": {
+        const result = await toolTriage({
+          project: args?.project as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "review": {
+        const result = await toolReview({
+          days: args?.days as number | undefined,
+          since: args?.since as string | undefined,
+          until: args?.until as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
       }
 
       // ─── Graph / context tools ─────────────────────────────────
 
-      case "sift_graph": {
+      case "graph": {
         const raw = runObsidian(["backlinks", `file=${args?.name as string}`, "format=json"]);
         if (raw.startsWith("Error")) {
           return { content: [{ type: "text", text: raw }], isError: true };
@@ -1087,6 +1121,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // ─── Obsidian CLI tools ────────────────────────────────────
 
+      case "vault_open": {
+        const fileArg = args?.file as string;
+        const paramName = fileArg.includes("/") || fileArg.includes("\\") ? "path" : "file";
+        const cliArgs = ["open", `${paramName}=${fileArg}`];
+        if (args?.newTab) cliArgs.push("newtab");
+        const result = runObsidian(cliArgs);
+        return {
+          content: [{ type: "text", text: result || "Opened in Obsidian." }],
+        };
+      }
+
       case "vault_search": {
         const cliArgs = ["search:context", `query=${args?.query as string}`, "format=json"];
         if (args?.path) cliArgs.push(`path=${args.path as string}`);
@@ -1123,6 +1168,71 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{ type: "text", text: result }],
         };
+      }
+
+      // ─── Thread Tools (direct core import) ──────────────────
+      case "thread_create": {
+        const result = await toolThreadCreate({
+          file: args!.file as string,
+          line: args!.line as number,
+          counterparts: args!.counterparts as string[],
+          state: args?.state as any,
+          followUp: args?.followUp as string | undefined,
+          source: args?.source as string | undefined,
+          content: args?.content as string | undefined,
+          date: args?.date as string | undefined,
+          description: args?.description as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "thread_entry": {
+        const result = await toolThreadEntry({
+          file: args!.file as string,
+          line: args!.line as number,
+          content: args!.content as string,
+          state: args?.state as any,
+          followUp: args?.followUp as string | undefined,
+          date: args?.date as string | undefined,
+          description: args?.description as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "thread_state": {
+        const result = await toolThreadState({
+          file: args!.file as string,
+          line: args!.line as number,
+          state: args?.state as any,
+          followUp: args?.followUp as string | undefined,
+          counterparts: args?.counterparts as string[] | undefined,
+          source: args?.source as string | undefined,
+          description: args?.description as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "thread_list": {
+        const result = await toolThreadList({
+          state: args?.state as any,
+          stale: args?.stale as boolean | undefined,
+          counterpart: args?.counterpart as string | undefined,
+          project: args?.project as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "promote": {
+        const result = await toolPromote({
+          file: args!.file as string,
+          line: args!.line as number,
+          name: args?.name as string | undefined,
+          area: args?.area as string | undefined,
+          status: args?.status as string | undefined,
+          tags: args?.tags as string[] | undefined,
+          description: args?.description as string | undefined,
+        });
+        return { content: [{ type: "text", text: result }] };
       }
 
       default:

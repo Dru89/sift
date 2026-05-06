@@ -4,5 +4,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["mcp-server.ts"]
+  "include": ["mcp-server.ts", "tool-impls.ts"],
+  "exclude": ["**/*.test.ts"]
 }

@@ -6,10 +6,9 @@
 SHELL := /bin/bash
 
 # Paths
-OPENCODE_TOOLS_DIR := $(HOME)/.config/opencode/tools
 SKILL_INSTALL_DIR  := $(HOME)/.agents/skills/sift
 
-.PHONY: help build clean install install-skill install-opencode install-cli link unlink dev
+.PHONY: help build clean install install-skill install-cli link unlink dev test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -23,9 +22,12 @@ build: ## Build all packages (core, cli, agent skill)
 clean: ## Remove all build artifacts
 	npm run clean
 
+test: ## Run all tests
+	npm test
+
 # ─── Install ──────────────────────────────────────────────────
 
-install: build install-cli install-skill install-opencode ## Build and install everything
+install: build install-cli install-skill ## Build and install everything
 	@echo ""
 	@echo "  Done. Start a new agent session to pick up changes."
 
@@ -42,16 +44,6 @@ install-skill: build ## Install the agent skill (SKILL.md + MCP server)
 		npx skills add . -g -y; \
 	else \
 		echo "  Skipping skill install (npx not found)"; \
-	fi
-
-install-opencode: install-skill ## Copy OpenCode native tools (skipped if OpenCode not installed)
-	@if [ -d "$(HOME)/.config/opencode" ]; then \
-		mkdir -p "$(OPENCODE_TOOLS_DIR)"; \
-		cp "$(SKILL_INSTALL_DIR)/tools/sift.ts" "$(OPENCODE_TOOLS_DIR)/sift.ts"; \
-		cp "$(SKILL_INSTALL_DIR)/tools/vault.ts" "$(OPENCODE_TOOLS_DIR)/vault.ts"; \
-		echo "  Copied tools to $(OPENCODE_TOOLS_DIR)"; \
-	else \
-		echo "  Skipping OpenCode tools ($(HOME)/.config/opencode not found)"; \
 	fi
 
 # ─── Development ──────────────────────────────────────────────

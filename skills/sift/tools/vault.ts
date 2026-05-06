@@ -83,6 +83,29 @@ export const read = tool({
   },
 });
 
+export const open = tool({
+  description:
+    "Open a file in Obsidian. Use this when the user asks to open, view, or navigate to a vault file. Requires Obsidian to be running.",
+  args: {
+    file: tool.schema
+      .string()
+      .describe(
+        "File name (wikilink-style resolution, e.g., 'Sift' finds 'Projects/Sift.md') or exact path.",
+      ),
+    newTab: tool.schema
+      .boolean()
+      .optional()
+      .describe("Open in a new tab instead of replacing the current one."),
+  },
+  async execute(args) {
+    const isPath = args.file.includes("/") || args.file.includes("\\");
+    const paramName = isPath ? "path" : "file";
+    const cliArgs = ["open", `${paramName}=${args.file}`];
+    if (args.newTab) cliArgs.push("newtab");
+    return runObsidian(cliArgs);
+  },
+});
+
 export const outline = tool({
   description:
     "Show the heading structure of a vault file. Returns a tree of headings with their levels. Useful for understanding file structure before reading specific sections. Requires Obsidian to be running.",
