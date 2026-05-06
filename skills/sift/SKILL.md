@@ -200,6 +200,8 @@ Long-form content (design specs, meeting writeups) → `sift_subnote`.
 
 When unsure where content goes, ask. The wrong placement means the user can't find it later.
 
+**Don't put managed tasks in subnotes.** Subnotes are reference material (specs, meeting notes, design docs). If you need a task based on something in a subnote, add it to the parent project's `## Tasks` section and wiki-link the subnote for context. Checkboxes in subnotes that track progress within the document (e.g., "verify X works") should use `[~]` (non-task checkbox) so sift and Obsidian Tasks ignore them.
+
 ## Correcting mistakes
 
 If you mark the wrong task done or set the wrong status:
