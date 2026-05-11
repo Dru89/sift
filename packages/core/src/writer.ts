@@ -17,6 +17,12 @@ export interface NewTaskOptions {
   start?: string;
   recurrence?: string;
   /**
+   * Body lines to add below the task (indented sub-bullets or prose).
+   * Each entry becomes a tab-indented line below the task.
+   * Entries without a leading `- ` are prefixed with `- ` automatically.
+   */
+  body?: string[];
+  /**
    * Name of the project to add this task to. If provided, the task is added
    * under the "## Tasks" heading in the project file instead of the daily note.
    * The project must exist in the vault.
@@ -150,11 +156,14 @@ export async function addTask(
     recurrence: options.recurrence || null,
   });
 
+  // Build the full task content (task line + optional body)
+  const taskContent = formatTaskWithBody(taskLine, options.body);
+
   if (options.project) {
-    return addTaskToProject(config, options.project, taskLine);
+    return addTaskToProject(config, options.project, taskContent);
   }
 
-  const written = await addTaskToDailyNote(config, taskLine, options.date);
+  const written = await addTaskToDailyNote(config, taskContent, options.date);
   return { taskLine: written, reopened: false };
 }
 
@@ -183,13 +192,16 @@ export async function addTaskToFile(
     recurrence: options.recurrence || null,
   });
 
+  // Build the full task content (task line + optional body)
+  const taskContent = formatTaskWithBody(taskLine, options.body);
+
   let content = await fs.readFile(fullPath, "utf-8");
 
   if (heading) {
-    content = insertContentUnderHeading(content, taskLine, heading);
+    content = insertContentUnderHeading(content, taskContent, heading);
   } else {
     // Append to end
-    content = content.trimEnd() + "\n" + taskLine + "\n";
+    content = content.trimEnd() + "\n" + taskContent + "\n";
   }
 
   await fs.writeFile(fullPath, content, "utf-8");
@@ -715,17 +727,101 @@ export async function moveTask(
     }
   }
 
-  destContent = insertContentUnderHeading(destContent, cleanedTaskLine, destHeading);
+  // Collect the full task block (task + body + thread)
+  const taskBlock = collectTaskBlock(sourceLines, lineIdx);
+  // Apply self-link stripping to the first line (the task itself)
+  const cleanedBlock = [cleanedTaskLine, ...taskBlock.slice(1)];
+  const insertContent = cleanedBlock.join("\n");
+
+  destContent = insertContentUnderHeading(destContent, insertContent, destHeading);
   await fs.writeFile(destFullPath, destContent, "utf-8");
 
   // ── Remove from source ────────────────────────────────────
-  sourceLines.splice(lineIdx, 1);
+  sourceLines.splice(lineIdx, taskBlock.length);
   await fs.writeFile(sourceFullPath, sourceLines.join("\n"), "utf-8");
 
   return { description, taskLine: cleanedTaskLine, destination, reopened };
 }
 
 // ─── Internal helpers ────────────────────────────────────────
+
+/**
+ * Format a task line with optional body lines below it.
+ * Body lines are indented with a tab and prefixed with `- ` if not already a list item.
+ */
+function formatTaskWithBody(taskLine: string, body?: string[]): string {
+  if (!body || body.length === 0) return taskLine;
+
+  const bodyLines = body.map((line) => {
+    const trimmed = line.trim();
+    // If it already starts with a list marker or checkbox, just indent it
+    if (/^[-*+]\s/.test(trimmed) || /^- \[.\]/.test(trimmed)) {
+      return `\t${trimmed}`;
+    }
+    // Otherwise, format as a bullet
+    return `\t- ${trimmed}`;
+  });
+
+  return [taskLine, ...bodyLines].join("\n");
+}
+
+/**
+ * Collect the full "task block" starting at a given line index.
+ * A task block is the task line itself plus all subordinate content:
+ * indented body lines, blockquote lines (threads), and blank lines within.
+ *
+ * @param lines - All lines of the file
+ * @param lineIdx - 0-indexed position of the task line
+ * @returns Array of lines comprising the full task block
+ */
+function collectTaskBlock(lines: string[], lineIdx: number): string[] {
+  const taskLine = lines[lineIdx];
+  const taskIndent = taskLine.match(/^(\s*)/)?.[1].length ?? 0;
+  const blockLines = [taskLine];
+
+  for (let i = lineIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Blank lines: include if the next non-blank line is still subordinate
+    if (line.trim() === "") {
+      let hasMore = false;
+      for (let k = i + 1; k < lines.length; k++) {
+        if (lines[k].trim() === "") continue;
+        const nextIndent = lines[k].match(/^(\s*)/)?.[1].length ?? 0;
+        const isBlockquote = /^\s*>/.test(lines[k]);
+        if (nextIndent > taskIndent || isBlockquote) {
+          hasMore = true;
+        }
+        break;
+      }
+      if (hasMore) {
+        blockLines.push(line);
+        continue;
+      }
+      break;
+    }
+
+    // Blockquote lines (threads) belong to the block
+    if (/^\s*>/.test(line)) {
+      blockLines.push(line);
+      continue;
+    }
+
+    // Check indentation — must be deeper than the task
+    const lineIndent = line.match(/^(\s*)/)?.[1].length ?? 0;
+    if (lineIndent <= taskIndent) break;
+
+    // Subordinate content (body, subtask, prose)
+    blockLines.push(line);
+  }
+
+  // Remove trailing blank lines
+  while (blockLines.length > 1 && blockLines[blockLines.length - 1].trim() === "") {
+    blockLines.pop();
+  }
+
+  return blockLines;
+}
 
 /**
  * Verify that a task line contains the expected description text.
@@ -1145,41 +1241,9 @@ export async function promoteTask(
   const task = parseLine(taskLine, normalizedSourcePath, options.line);
   const taskDescription = task ? task.description : taskLine.trim();
 
-  // ── Collect the task block (task line + thread lines) ─────
-  const blockLines = [taskLine];
-  let threadLineCount = 0;
-
-  // Look for thread blockquote lines following the task
-  const blockquoteRegex = /^\s*>/;
-  for (let i = lineIdx + 1; i < sourceLines.length; i++) {
-    const line = sourceLines[i];
-    // Stop at next task line
-    if (/^\s*- \[.\]/.test(line)) break;
-    // Stop at non-blockquote, non-empty lines (next content)
-    if (line.trim() !== "" && !blockquoteRegex.test(line)) break;
-    // Include blockquote lines and blank lines within the block
-    if (blockquoteRegex.test(line)) {
-      blockLines.push(line);
-      threadLineCount++;
-    } else if (line.trim() === "") {
-      // Blank line — check if more blockquote follows
-      let hasMore = false;
-      for (let j = i + 1; j < sourceLines.length; j++) {
-        if (sourceLines[j].trim() === "") continue;
-        if (blockquoteRegex.test(sourceLines[j])) hasMore = true;
-        break;
-      }
-      if (hasMore) {
-        blockLines.push(line);
-      } else {
-        break;
-      }
-    } else {
-      break;
-    }
-  }
-
-  const hadThread = threadLineCount > 0;
+  // ── Collect the full task block (task + body + thread) ────
+  const blockLines = collectTaskBlock(sourceLines, lineIdx);
+  const hadThread = blockLines.some(l => /^\s*>/.test(l) && l.includes("🧵"));
 
   // ── Create the project ────────────────────────────────────
   const projectName = options.name || taskDescription;

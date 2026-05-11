@@ -69,6 +69,16 @@ export interface Task {
   /** The line number in the file (1-indexed) */
   line: number;
 
+  /** Indentation level (number of leading whitespace characters) */
+  indent: number;
+
+  /**
+   * Body lines below the task (indented content that isn't a thread).
+   * Includes plain bullets, prose, and subtask checkboxes.
+   * Lines are stored as raw strings (preserving indentation).
+   */
+  body: string[];
+
   /** Thread attached to this task, if any */
   thread: Thread | null;
 }

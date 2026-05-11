@@ -207,6 +207,12 @@ const tools: Tool[] = [
           type: "string",
           description: "Recurrence rule, e.g. 'every week', 'every month'",
         },
+        body: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Body lines to add below the task (sub-bullets or notes). Each entry becomes an indented line. Entries without a leading '- ' are auto-prefixed.",
+        },
         project: {
           type: "string",
           description:

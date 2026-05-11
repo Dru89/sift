@@ -213,8 +213,37 @@ export async function createThread(
     indent,
   );
 
-  // Insert thread lines after the task line
-  lines.splice(lineIdx + 1, 0, ...threadLines);
+  // Find the insertion point: after all body content (indented lines below the task)
+  const taskIndent = (lines[lineIdx].match(/^(\s*)/) ?? ["", ""])[1].length;
+  let insertIdx = lineIdx + 1;
+  for (let i = lineIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Stop at next top-level task or non-subordinate content
+    if (line.trim() === "") {
+      // Blank line — check if more subordinate content follows
+      let hasMore = false;
+      for (let k = i + 1; k < lines.length; k++) {
+        if (lines[k].trim() === "") continue;
+        const nextIndent = (lines[k].match(/^(\s*)/) ?? ["", ""])[1].length;
+        if (nextIndent > taskIndent) {
+          hasMore = true;
+        }
+        break;
+      }
+      if (hasMore) {
+        insertIdx = i + 1;
+        continue;
+      }
+      break;
+    }
+    // Stop if not indented deeper than the task
+    const lineIndent = (line.match(/^(\s*)/) ?? ["", ""])[1].length;
+    if (lineIndent <= taskIndent && !/^\s*>/.test(line)) break;
+    insertIdx = i + 1;
+  }
+
+  // Insert thread lines after body content
+  lines.splice(insertIdx, 0, ...threadLines);
 
   await fs.writeFile(fullPath, lines.join("\n"), "utf-8");
 

@@ -58,16 +58,13 @@ export function parseThread(
   lines: string[],
   taskLineNumber: number,
 ): Thread | null {
-  // Find the start of the thread block — first blockquote line with 🧵
+  // Find the start of the thread block — first blockquote line with 🧵.
+  // The caller provides all lines that are subordinate to the task (body + thread),
+  // so we scan the entire array looking for the sentinel.
   let headerIdx = -1;
   let headerContent = "";
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
-    // Stop if we hit a new list item at the same or higher level (next task)
-    if (/^\s*- \[.\]/.test(line)) break;
-    // Stop if we hit a non-indented, non-blockquote, non-empty line
-    if (line.trim() !== "" && !BLOCKQUOTE_LINE_REGEX.test(line)) break;
 
     // Check if this blockquote line contains the thread sentinel
     const bqMatch = line.match(BLOCKQUOTE_LINE_REGEX);

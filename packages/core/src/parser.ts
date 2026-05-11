@@ -67,7 +67,7 @@ export function parseLine(
   const match = line.match(TASK_LINE_REGEX);
   if (!match) return null;
 
-  const [, , statusChar, content] = match;
+  const [, indent, statusChar, content] = match;
   const raw = content.trim();
 
   // Don't count empty checkboxes as tasks (template placeholders)
@@ -95,13 +95,17 @@ export function parseLine(
     recurrence,
     filePath,
     line: lineNumber,
+    indent: indent.length,
+    body: [],
     thread: null,
   };
 }
 
 /**
  * Parse multiple lines of text and extract all tasks.
- * Also detects thread blocks attached to tasks (blockquotes below a task line).
+ * Collects the full "task block" for each task: body lines (indented content)
+ * and thread (blockquote with 🧵). Indented subtasks are treated as body of
+ * their parent task, not as standalone tasks.
  * Skips content inside fenced code blocks (``` ... ```).
  *
  * @param content - The full text content of a file
@@ -123,15 +127,90 @@ export function parseContent(content: string, filePath: string): Task[] {
     if (insideCodeBlock) continue;
 
     const task = parseLine(lines[i], filePath, i + 1);
-    if (task) {
-      // Look for a thread in the lines following this task
-      const remainingLines = lines.slice(i + 1);
-      const thread = parseThread(remainingLines, i + 1);
-      if (thread) {
-        task.thread = thread;
+    if (!task) continue;
+
+    // Collect the task block: all subordinate content below this task.
+    // Subordinate content is anything indented deeper than the task itself,
+    // OR blockquote lines (which threads use regardless of indentation).
+    const taskIndent = task.indent;
+    const blockBodyLines: string[] = [];
+    let threadStartIdx = -1;
+    let j = i + 1;
+
+    while (j < lines.length) {
+      const line = lines[j];
+
+      // Stop at code fences
+      if (/^\s*(`{3,}|~{3,})/.test(line)) break;
+
+      // Blank lines: include if the next non-blank line is still subordinate
+      if (line.trim() === "") {
+        let hasMore = false;
+        for (let k = j + 1; k < lines.length; k++) {
+          if (lines[k].trim() === "") continue;
+          const nextIndent = lines[k].match(/^(\s*)/)?.[1].length ?? 0;
+          const isBlockquote = /^\s*>/.test(lines[k]);
+          if (nextIndent > taskIndent || isBlockquote) {
+            hasMore = true;
+          }
+          break;
+        }
+        if (hasMore) {
+          blockBodyLines.push(line);
+          j++;
+          continue;
+        }
+        break;
       }
-      tasks.push(task);
+
+      // Blockquote lines belong to the block (threads use these)
+      if (/^\s*>/.test(line)) {
+        blockBodyLines.push(line);
+        j++;
+        continue;
+      }
+
+      // Check indentation — must be deeper than the task
+      const lineIndent = line.match(/^(\s*)/)?.[1].length ?? 0;
+      if (lineIndent <= taskIndent) break;
+
+      // This line is subordinate content (body, subtask, prose)
+      blockBodyLines.push(line);
+      j++;
     }
+
+    // Parse thread from the collected block lines
+    const thread = parseThread(blockBodyLines, i + 1);
+    if (thread) {
+      task.thread = thread;
+    }
+
+    // Body = block lines minus the thread lines
+    if (thread && blockBodyLines.length > 0) {
+      // Thread line numbers are absolute (1-indexed in file).
+      // Convert to relative indices within blockBodyLines (0-indexed).
+      const threadRelStart = thread.startLine - (i + 2); // i+2 because task is at i+1 (1-indexed)
+      const threadRelEnd = thread.endLine - (i + 2);
+
+      for (let k = 0; k < blockBodyLines.length; k++) {
+        if (k >= threadRelStart && k <= threadRelEnd) continue;
+        // Skip blank lines that are solely separating the thread from body
+        // (only if they're adjacent to the thread boundaries)
+        task.body.push(blockBodyLines[k]);
+      }
+    } else {
+      task.body = blockBodyLines;
+    }
+
+    // Remove trailing blank lines from body
+    while (task.body.length > 0 && task.body[task.body.length - 1].trim() === "") {
+      task.body.pop();
+    }
+
+    tasks.push(task);
+
+    // Skip past the block so we don't re-parse subordinate lines as tasks
+    i = j - 1;
   }
 
   return tasks;
@@ -246,7 +325,7 @@ function stripMetadata(text: string): string {
  * Format a Task back into the Obsidian Tasks emoji format.
  * Useful for writing tasks to files.
  */
-export function formatTask(task: Omit<Task, "raw" | "filePath" | "line" | "thread">): string {
+export function formatTask(task: Omit<Task, "raw" | "filePath" | "line" | "thread" | "indent" | "body">): string {
   const parts: string[] = [`- [${statusToChar(task.status)}] ${task.description}`];
 
   if (task.priority !== "none") {

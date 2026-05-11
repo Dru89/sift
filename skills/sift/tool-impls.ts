@@ -102,6 +102,13 @@ function formatTaskLine(task: Task, config: SiftConfig): string {
   const absPath = `${config.vaultPath}/${task.filePath}`;
   line += `  [${absPath}:${task.line}]`;
 
+  // Body lines if present
+  if (task.body.length > 0) {
+    for (const bodyLine of task.body) {
+      line += "\n    " + bodyLine.trim();
+    }
+  }
+
   // Thread summary if present
   if (task.thread) {
     line += "\n  " + formatThreadSummary(task.thread);
@@ -563,6 +570,7 @@ export interface AddArgs {
   scheduled?: string;
   start?: string;
   recurrence?: string;
+  body?: string[];
   project?: string;
   date?: string;
 }
@@ -576,6 +584,7 @@ export async function toolAdd(args: AddArgs): Promise<string> {
     scheduled: args.scheduled,
     start: args.start,
     recurrence: args.recurrence,
+    body: args.body,
     project: args.project,
     date: args.date,
   });

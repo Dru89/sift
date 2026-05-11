@@ -244,6 +244,7 @@ program
   .option("-s, --scheduled <date>", "Scheduled date (YYYY-MM-DD)")
   .option("--start <date>", "Start date (YYYY-MM-DD)")
   .option("-r, --recurrence <rule>", "Recurrence rule (e.g., 'every week')")
+  .option("-b, --body <line>", "Body line (sub-bullet or note) below the task. Can be repeated.", (val: string, prev: string[]) => [...prev, val], [] as string[])
   .option("--project <name>", "Add task to a project instead of daily note")
   .option("--date <date>", "Target daily note date (YYYY-MM-DD, default: today)")
   .action(async (descriptionParts: string[], opts) => {
@@ -259,6 +260,7 @@ program
         scheduled: opts.scheduled,
         start: opts.start,
         recurrence: opts.recurrence,
+        body: opts.body.length > 0 ? opts.body : undefined,
         project: opts.project,
         date: opts.date,
       });
@@ -312,6 +314,7 @@ program
     const fmtOpts: FormatTaskOptions = {
       showFile: opts.showFile ?? true,
       vaultPath: opts.absolute ? config.vaultPath : undefined,
+      showBody: true,
     };
     console.log(
       formatTaskList(

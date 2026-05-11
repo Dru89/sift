@@ -21,6 +21,8 @@ export interface FormatTaskOptions {
   showFile?: boolean;
   /** When set, file paths are displayed as absolute paths (joined with this vault root). */
   vaultPath?: string;
+  /** Show body lines below the task (default: false). */
+  showBody?: boolean;
 }
 
 /**
@@ -64,6 +66,12 @@ export function formatTask(task: Task, options?: FormatTaskOptions): string {
       ? path.join(options.vaultPath, task.filePath)
       : task.filePath;
     line += "  " + chalk.dim(`[${displayPath}:${task.line}]`);
+  }
+
+  // Append body lines if present and requested
+  if (options?.showBody && task.body.length > 0) {
+    const bodyLines = task.body.map((b) => chalk.dim(`    ${b.trim()}`));
+    line += "\n" + bodyLines.join("\n");
   }
 
   return line;

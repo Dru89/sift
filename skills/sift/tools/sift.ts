@@ -146,6 +146,12 @@ export const add = tool({
       .string()
       .optional()
       .describe("Recurrence rule, e.g. 'every week', 'every month'"),
+    body: tool.schema
+      .array(tool.schema.string())
+      .optional()
+      .describe(
+        "Body lines to add below the task (sub-bullets or notes). Each entry becomes an indented line. Entries without a leading '- ' are auto-prefixed.",
+      ),
     project: tool.schema
       .string()
       .optional()
@@ -166,6 +172,11 @@ export const add = tool({
     if (args.scheduled) cliArgs.push("--scheduled", args.scheduled);
     if (args.start) cliArgs.push("--start", args.start);
     if (args.recurrence) cliArgs.push("--recurrence", args.recurrence);
+    if (args.body && args.body.length > 0) {
+      for (const line of args.body) {
+        cliArgs.push("--body", line);
+      }
+    }
     if (args.project) cliArgs.push("--project", args.project);
     if (args.date) cliArgs.push("--date", args.date);
     cliArgs.push("--", args.description);
